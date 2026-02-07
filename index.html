@@ -5,9 +5,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Pomodoro Focus Timer</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🍅</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
+  <div class="ambient-glow"></div>
+  <div class="grain-overlay"></div>
+
   <div id="app" data-mode="work">
 
     <!-- Settings Panel (slide-in) -->
@@ -38,6 +44,13 @@
           </label>
         </fieldset>
         <fieldset>
+          <legend>Goals</legend>
+          <label>
+            Daily Pomodoro Goal
+            <input type="number" id="setting-daily-goal" min="1" max="30" value="8">
+          </label>
+        </fieldset>
+        <fieldset>
           <legend>Automation</legend>
           <label class="toggle-label">
             <input type="checkbox" id="setting-auto-start-breaks">
@@ -59,18 +72,57 @@
             <input type="range" id="setting-volume" min="0" max="100" value="70">
           </label>
         </fieldset>
+        <fieldset>
+          <legend>Ambient Sound</legend>
+          <label class="toggle-label">
+            <input type="checkbox" id="setting-ambient-enabled">
+            Enable ambient sound
+          </label>
+          <label>
+            Sound Type
+            <select id="setting-ambient-type">
+              <option value="rain">Rain</option>
+              <option value="white">White Noise</option>
+              <option value="brown">Brown Noise</option>
+              <option value="coffee">Coffee Shop</option>
+            </select>
+          </label>
+          <label>
+            Ambient Volume
+            <input type="range" id="setting-ambient-volume" min="0" max="100" value="40">
+          </label>
+        </fieldset>
       </div>
+    </div>
+
+    <!-- Achievements Panel (slide-in) -->
+    <div id="achievements-panel" class="achievements-panel" hidden>
+      <div class="achievements-header">
+        <h2>Achievements</h2>
+        <button id="achievements-close" class="btn-icon" aria-label="Close achievements">&times;</button>
+      </div>
+      <div id="achievements-grid" class="achievements-grid"></div>
     </div>
 
     <!-- Header -->
     <header class="header">
-      <h1 class="logo">🍅 Pomodoro</h1>
+      <h1 class="logo">
+        <span class="logo-icon">&#9201;</span>
+        <span class="logo-text">Pomodoro</span>
+      </h1>
       <div class="header-actions">
+        <button id="btn-theme" class="btn-icon" title="Toggle theme">
+          <svg class="icon-moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
+          <svg class="icon-sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="display:none"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+        </button>
+        <button id="btn-achievements" class="btn-icon" title="Achievements">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 9H4.5a2.5 2.5 0 010-5C7 4 7 7 7 7"/><path d="M18 9h1.5a2.5 2.5 0 000-5C17 4 17 7 17 7"/><path d="M4 22h16"/><path d="M10 22V8a4 4 0 00-4-4"/><path d="M14 22V8a4 4 0 014-4"/><path d="M8 22h8"/><path d="M12 11v6"/></svg>
+        </button>
         <button id="btn-focus" class="btn-icon" title="Focus Mode (F)">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 00-2 2v3m18 0V5a2 2 0 00-2-2h-3m0 18h3a2 2 0 002-2v-3M3 16v3a2 2 0 002 2h3"/></svg>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 3H5a2 2 0 00-2 2v3m18 0V5a2 2 0 00-2-2h-3m0 18h3a2 2 0 002-2v-3M3 16v3a2 2 0 002 2h3"/></svg>
         </button>
         <button id="btn-settings" class="btn-icon" title="Settings">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
         </button>
       </div>
     </header>
@@ -92,6 +144,15 @@
 
       <!-- Timer Display -->
       <div class="timer-display">
+        <div class="timer-glow"></div>
+        <svg class="timer-ring" viewBox="0 0 240 240" width="240" height="240">
+          <!-- Daily goal ring (inner) -->
+          <circle class="goal-ring-bg" cx="120" cy="120" r="98" fill="none" stroke="var(--border)" stroke-width="4"/>
+          <circle id="goal-ring" class="goal-ring" cx="120" cy="120" r="98" fill="none" stroke="var(--accent)" stroke-width="4" stroke-dasharray="615.75" stroke-dashoffset="615.75" stroke-linecap="round"/>
+          <!-- Timer progress ring (outer) -->
+          <circle class="ring-bg" cx="120" cy="120" r="110" fill="none" stroke="var(--surface)" stroke-width="6"/>
+          <circle id="timer-ring" class="ring-progress" cx="120" cy="120" r="110" fill="none" stroke="var(--accent-light)" stroke-width="6" stroke-dasharray="691.15" stroke-dashoffset="0" stroke-linecap="round"/>
+        </svg>
         <span id="timer-text" class="timer-text">25:00</span>
       </div>
 
@@ -112,11 +173,28 @@
         <div class="tasks-header">
           <h2>Tasks</h2>
         </div>
+        <!-- Tag Filters -->
+        <div id="task-filters" class="task-filters">
+          <button class="tag-filter active" data-tag="all">All</button>
+          <button class="tag-filter" data-tag="Work"><span class="tag-dot" style="background:#e74c3c"></span>Work</button>
+          <button class="tag-filter" data-tag="Personal"><span class="tag-dot" style="background:#3498db"></span>Personal</button>
+          <button class="tag-filter" data-tag="Urgent"><span class="tag-dot" style="background:#e67e22"></span>Urgent</button>
+          <button class="tag-filter" data-tag="Learning"><span class="tag-dot" style="background:#9b59b6"></span>Learning</button>
+          <button class="tag-filter" data-tag="Health"><span class="tag-dot" style="background:#2ecc71"></span>Health</button>
+        </div>
         <form id="task-form" class="task-form">
           <input type="text" id="task-input" placeholder="Add a task..." required>
           <input type="number" id="task-est" placeholder="Est." min="1" max="20" title="Estimated pomodoros">
           <button type="submit" class="btn btn-small">Add</button>
         </form>
+        <!-- Tag Picker (for new tasks) -->
+        <div id="tag-picker" class="tag-picker">
+          <button type="button" class="tag-pill" data-tag="Work" style="--tag-color:#e74c3c">Work</button>
+          <button type="button" class="tag-pill" data-tag="Personal" style="--tag-color:#3498db">Personal</button>
+          <button type="button" class="tag-pill" data-tag="Urgent" style="--tag-color:#e67e22">Urgent</button>
+          <button type="button" class="tag-pill" data-tag="Learning" style="--tag-color:#9b59b6">Learning</button>
+          <button type="button" class="tag-pill" data-tag="Health" style="--tag-color:#2ecc71">Health</button>
+        </div>
         <ul id="task-list" class="task-list"></ul>
       </section>
     </main>
@@ -152,6 +230,30 @@
         <p class="focus-hint">Press Escape to exit focus mode</p>
       </div>
     </div>
+
+    <!-- Keyboard Shortcuts Overlay -->
+    <div id="shortcuts-overlay" class="shortcuts-overlay" hidden>
+      <div class="shortcuts-modal">
+        <div class="shortcuts-header">
+          <h2>Keyboard Shortcuts</h2>
+          <button id="shortcuts-close" class="btn-icon" aria-label="Close">&times;</button>
+        </div>
+        <div class="shortcuts-grid">
+          <div class="shortcut-row"><kbd>Space</kbd><span>Start / Pause timer</span></div>
+          <div class="shortcut-row"><kbd>S</kbd><span>Skip to next mode</span></div>
+          <div class="shortcut-row"><kbd>R</kbd><span>Reset timer</span></div>
+          <div class="shortcut-row"><kbd>F</kbd><span>Toggle focus mode</span></div>
+          <div class="shortcut-row"><kbd>?</kbd><span>Show this help</span></div>
+          <div class="shortcut-row"><kbd>Esc</kbd><span>Close overlay / panel</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Goal Celebration -->
+    <div id="goal-celebration" class="goal-celebration" hidden></div>
+
+    <!-- Achievement Toast -->
+    <div id="achievement-toast" class="achievement-toast" hidden></div>
 
   </div>
 

@@ -10,11 +10,18 @@ const DEFAULTS = {
     autoStartPomodoros: false,
     soundEnabled: true,
     volume: 70,
+    dailyGoal: 8,
+    theme: 'dark',
+    ambientEnabled: false,
+    ambientType: 'rain',
+    ambientVolume: 40,
   },
   tasks: [],
   sessions: [],
   pomodorosCompleted: 0,
   currentTaskId: null,
+  achievements: [],
+  streakData: { lastDate: null, count: 0 },
 };
 
 let saveTimeout = null;
@@ -27,10 +34,12 @@ function load() {
     // Merge with defaults so new keys are always present
     return {
       settings: { ...DEFAULTS.settings, ...data.settings },
-      tasks: Array.isArray(data.tasks) ? data.tasks : [],
+      tasks: Array.isArray(data.tasks) ? data.tasks.map(t => ({ notes: '', tags: [], ...t })) : [],
       sessions: Array.isArray(data.sessions) ? data.sessions : [],
       pomodorosCompleted: data.pomodorosCompleted || 0,
       currentTaskId: data.currentTaskId ?? null,
+      achievements: Array.isArray(data.achievements) ? data.achievements : [],
+      streakData: { ...DEFAULTS.streakData, ...data.streakData },
     };
   } catch {
     return structuredClone(DEFAULTS);

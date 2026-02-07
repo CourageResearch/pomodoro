@@ -28,5 +28,9 @@ export function createStats(initialSessions = []) {
         .filter(s => s.date === key && s.mode === 'work')
         .reduce((sum, s) => sum + s.durationMinutes, 0);
     },
+
+    totalPomodoros() {
+      return sessions.filter(s => s.mode === 'work').length;
+    },
   };
 }
