@@ -40,7 +40,7 @@ export function createUI() {
   const btnSkip = $('#btn-skip');
   const btnFocus = $('#btn-focus');
   const btnSettings = $('#btn-settings');
-  const btnTheme = $('#btn-theme');
+  const btnTheme = $('#btn-theme'); // may be null if removed
   const btnAchievements = $('#btn-achievements');
   const settingsPanel = $('#settings-panel');
   const settingsClose = $('#settings-close');
@@ -120,9 +120,9 @@ export function createUI() {
   const TIMER_RING_CIRCUMFERENCE = 2 * Math.PI * 110; // ~691.15
   const GOAL_RING_CIRCUMFERENCE = 2 * Math.PI * 98;   // ~615.75
 
-  // Theme icon management
-  const iconMoon = btnTheme.querySelector('.icon-moon');
-  const iconSun = btnTheme.querySelector('.icon-sun');
+  // Theme icon management (may be null if theme toggle removed)
+  const iconMoon = btnTheme ? btnTheme.querySelector('.icon-moon') : null;
+  const iconSun = btnTheme ? btnTheme.querySelector('.icon-sun') : null;
 
   // Tag picker toggle logic
   tagPicker.querySelectorAll('.tag-pill').forEach(pill => {
@@ -431,18 +431,11 @@ export function createUI() {
 
     // ---- Theme ----
     setTheme(theme) {
-      document.documentElement.dataset.theme = theme;
-      if (theme === 'light') {
-        iconMoon.style.display = 'none';
-        iconSun.style.display = '';
-      } else {
-        iconMoon.style.display = '';
-        iconSun.style.display = 'none';
-      }
+      // Light-only mode; no-op
     },
 
     onThemeToggle(fn) {
-      btnTheme.addEventListener('click', fn);
+      if (btnTheme) btnTheme.addEventListener('click', fn);
     },
 
     // ---- Shortcuts overlay ----

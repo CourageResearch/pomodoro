@@ -11,7 +11,7 @@ const DEFAULTS = {
     soundEnabled: true,
     volume: 70,
     dailyGoal: 8,
-    theme: 'dark',
+    theme: 'light',
     ambientEnabled: false,
     ambientType: 'rain',
     ambientVolume: 40,
@@ -98,8 +98,15 @@ function mergeStates(local, server) {
     (a, b) => new Date(a.timestamp) - new Date(b.timestamp)
   );
 
+  // For blocklist, use whichever has more entries (don't lose server data)
+  const localBlocklist = local.settings?.blocklist || [];
+  const serverBlocklist = server.settings?.blocklist || [];
+  const mergedBlocklist = localBlocklist.length >= serverBlocklist.length
+    ? localBlocklist
+    : [...new Set([...serverBlocklist, ...localBlocklist])];
+
   return {
-    settings: { ...DEFAULTS.settings, ...server.settings, ...local.settings },
+    settings: { ...DEFAULTS.settings, ...server.settings, ...local.settings, blocklist: mergedBlocklist },
     tasks: (local.tasks && local.tasks.length > 0) ? local.tasks : (server.tasks || []),
     sessions: mergedSessions,
     pomodorosCompleted: Math.max(local.pomodorosCompleted || 0, server.pomodorosCompleted || 0),
