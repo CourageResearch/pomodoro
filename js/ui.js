@@ -15,6 +15,22 @@ const TAG_COLORS = {
   Health: '#2ecc71',
 };
 
+function formatDateLabel(dateKey) {
+  const today = new Date().toISOString().slice(0, 10);
+  const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+  if (dateKey === today) return 'Today';
+  if (dateKey === yesterday) return 'Yesterday';
+  const [y, m, d] = dateKey.split('-');
+  const date = new Date(Number(y), Number(m) - 1, Number(d));
+  return date.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
 export function createUI() {
   // Cache DOM references
   const app = $('#app');
@@ -56,6 +72,20 @@ export function createUI() {
   const goalRing = $('#goal-ring');
   const tagPicker = $('#tag-picker');
   const tagFilters = $('#task-filters');
+  const distractionCounter = $('#distraction-counter');
+  const btnDistraction = $('#btn-distraction');
+  const distractionCountEl = $('#distraction-count');
+  const checkinDistractions = $('#checkin-distractions');
+  const sessionCheckin = $('#session-checkin');
+  const checkinTask = $('#checkin-task');
+  const checkinNote = $('#checkin-note');
+  const checkinMarkDone = $('#checkin-mark-done');
+  const checkinMarkDoneLabel = $('#checkin-mark-done-label');
+  const checkinSubmitBtn = $('#checkin-submit');
+  const historyPanel = $('#history-panel');
+  const historyClose = $('#history-close');
+  const historyList = $('#history-list');
+  const btnHistory = $('#btn-history');
 
   const originalTitle = document.title;
   let focusMode = false;
@@ -110,6 +140,18 @@ export function createUI() {
   // Achievements panel
   achievementsClose.addEventListener('click', () => { achievementsPanel.hidden = true; });
 
+  // History panel
+  historyClose.addEventListener('click', () => { historyPanel.hidden = true; });
+
+  // Check-in validation
+  function updateCheckinState() {
+    const hasNote = checkinNote.value.trim().length >= 3;
+    const isDone = checkinMarkDone.checked;
+    checkinSubmitBtn.disabled = !(hasNote || isDone);
+  }
+  checkinNote.addEventListener('input', updateCheckinState);
+  checkinMarkDone.addEventListener('change', updateCheckinState);
+
   let toastTimeout = null;
 
   return {
@@ -159,6 +201,108 @@ export function createUI() {
       setTimeout(() => { goalCelebration.hidden = true; }, 1300);
     },
 
+    showMinTaskWarning() {
+      // Briefly shake the start button and flash the task input
+      btnStart.style.animation = 'none';
+      btnStart.offsetHeight;
+      btnStart.style.animation = 'shake 0.4s ease';
+      taskInput.focus();
+      taskInput.placeholder = 'Add at least 2 tasks to start...';
+      setTimeout(() => {
+        btnStart.style.animation = '';
+        taskInput.placeholder = 'Add a task...';
+      }, 2000);
+    },
+
+    // ---- Effort reward (variable reinforcement) ----
+    showEffortReward(totalPoms, todayPoms) {
+      const rewards = [
+        'You showed up. That\'s the hardest part.',
+        'Discipline is choosing between what you want now and what you want most.',
+        'One more rep.',
+        'The work is the reward.',
+        'You\'re building something. Keep going.',
+        'Hard things become easy things with repetition.',
+        'Earned, not given.',
+        'The pain you feel today is the strength you feel tomorrow.',
+        'You didn\'t quit. That matters.',
+        'Momentum is real. You have it now.',
+        'Nobody cares. Work harder.',
+        'Comfort is the enemy of progress.',
+        'You\'re ahead of everyone who gave up.',
+        'The grind is the glory.',
+        'Small daily improvements compound into massive results.',
+      ];
+
+      // Only show ~60% of the time — intermittent reinforcement
+      if (Math.random() > 0.6) return;
+
+      const msg = rewards[Math.floor(Math.random() * rewards.length)];
+      const el = document.getElementById('effort-reward');
+      if (el) {
+        el.textContent = msg;
+        el.hidden = false;
+        el.style.animation = 'none';
+        el.offsetHeight;
+        el.style.animation = '';
+        setTimeout(() => { el.hidden = true; }, 4000);
+      }
+    },
+
+    // ---- Distraction counter ----
+    showDistractionCounter() { distractionCounter.hidden = false; },
+    hideDistractionCounter() { distractionCounter.hidden = true; },
+    updateDistractionCount(count) {
+      distractionCountEl.textContent = count;
+      distractionCounter.classList.toggle('has-distractions', count > 0);
+    },
+    onDistraction(fn) { btnDistraction.addEventListener('click', fn); },
+
+    // ---- Session check-in (accountability gate) ----
+    showCheckin(task, distractionCount = 0) {
+      if (task && !task.done) {
+        checkinTask.textContent = task.name;
+        checkinTask.hidden = false;
+        checkinMarkDoneLabel.hidden = false;
+      } else if (task) {
+        checkinTask.textContent = task.name;
+        checkinTask.hidden = false;
+        checkinMarkDoneLabel.hidden = true;
+      } else {
+        checkinTask.textContent = '';
+        checkinTask.hidden = true;
+        checkinMarkDoneLabel.hidden = true;
+      }
+      // Show distraction count
+      if (distractionCount === 0) {
+        checkinDistractions.textContent = '0 distractions — clean session';
+        checkinDistractions.className = 'checkin-distractions clean';
+        checkinDistractions.hidden = false;
+      } else {
+        checkinDistractions.textContent = `${distractionCount} distraction${distractionCount !== 1 ? 's' : ''}`;
+        checkinDistractions.className = 'checkin-distractions distracted';
+        checkinDistractions.hidden = false;
+      }
+      checkinNote.value = '';
+      checkinMarkDone.checked = false;
+      checkinSubmitBtn.disabled = true;
+      sessionCheckin.hidden = false;
+      setTimeout(() => checkinNote.focus(), 300);
+    },
+
+    isCheckinOpen() {
+      return !sessionCheckin.hidden;
+    },
+
+    onCheckinSubmit(fn) {
+      checkinSubmitBtn.addEventListener('click', () => {
+        const note = checkinNote.value.trim();
+        const markDone = checkinMarkDone.checked;
+        sessionCheckin.hidden = true;
+        fn({ note, markDone });
+      });
+    },
+
     // ---- Mode ----
     setMode(mode) {
       app.dataset.mode = mode;
@@ -171,8 +315,8 @@ export function createUI() {
 
     // ---- Start/Pause button ----
     setStartButton(isRunning) {
-      btnStart.textContent = isRunning ? 'Pause' : 'Start';
-      focusBtnStart.textContent = isRunning ? 'Pause' : 'Start';
+      btnStart.textContent = isRunning ? 'Quit' : 'Start';
+      focusBtnStart.textContent = isRunning ? 'Quit' : 'Start';
     },
 
     // ---- Pomodoro dots ----
@@ -194,6 +338,25 @@ export function createUI() {
       } else {
         currentTaskEl.hidden = true;
         focusCurrentTask.hidden = true;
+      }
+    },
+
+    // ---- Earned state (dopamine follows effort) ----
+    setEarned(earned) {
+      app.dataset.earned = earned ? 'true' : 'false';
+    },
+
+    // ---- Streak display ----
+    updateStreak(count) {
+      const el = document.getElementById('streak-count');
+      if (el) {
+        el.textContent = count > 0 ? `${count} day${count !== 1 ? 's' : ''}` : '0 days';
+        // Pulse animation when streak is active
+        if (count > 0) {
+          el.parentElement.classList.add('streak-active');
+        } else {
+          el.parentElement.classList.remove('streak-active');
+        }
       }
     },
 
@@ -287,6 +450,9 @@ export function createUI() {
         check.type = 'checkbox';
         check.className = 'task-check';
         check.checked = task.done;
+        check.addEventListener('click', (e) => {
+          e.stopPropagation();
+        });
         check.addEventListener('change', (e) => {
           e.stopPropagation();
           // Completion animation (only on check, not uncheck)
@@ -354,36 +520,6 @@ export function createUI() {
           });
         }
 
-        // Notes toggle
-        const notesBtn = document.createElement('button');
-        notesBtn.className = `task-notes-toggle${task.notes ? ' has-notes' : ''}`;
-        notesBtn.textContent = '📝';
-        notesBtn.title = 'Toggle notes';
-        notesBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          const existing = li.parentElement.querySelector(`.task-notes-area[data-task-id="${task.id}"]`);
-          if (existing) {
-            existing.remove();
-          } else {
-            const notesDiv = document.createElement('div');
-            notesDiv.className = 'task-notes-area';
-            notesDiv.dataset.taskId = task.id;
-            const textarea = document.createElement('textarea');
-            textarea.value = task.notes || '';
-            textarea.placeholder = 'Add notes...';
-            textarea.addEventListener('blur', () => {
-              if (callbacks.onNoteChange) {
-                callbacks.onNoteChange(task.id, textarea.value);
-              }
-            });
-            textarea.addEventListener('click', (ev) => ev.stopPropagation());
-            notesDiv.appendChild(textarea);
-            // Insert after the li
-            li.after(notesDiv);
-            textarea.focus();
-          }
-        });
-
         const poms = document.createElement('span');
         poms.className = 'task-pomodoros';
         if (task.estimatedPomodoros) {
@@ -403,7 +539,7 @@ export function createUI() {
 
         li.addEventListener('click', () => callbacks.onSelect(task.id));
 
-        li.append(dragHandle, check, name, tagsContainer, notesBtn, poms, del);
+        li.append(dragHandle, check, name, tagsContainer, poms, del);
         taskList.appendChild(li);
       });
     },
@@ -479,6 +615,67 @@ export function createUI() {
     openAchievements() { achievementsPanel.hidden = false; },
     closeAchievements() { achievementsPanel.hidden = true; },
 
+    // ---- History panel ----
+    openHistory() { historyPanel.hidden = false; },
+    closeHistory() { historyPanel.hidden = true; },
+    onHistoryOpen(fn) { btnHistory.addEventListener('click', fn); },
+
+    renderHistory(sessions) {
+      historyList.innerHTML = '';
+      const workSessions = sessions
+        .filter(s => s.mode === 'work')
+        .sort((a, b) => b.timestamp - a.timestamp);
+
+      if (workSessions.length === 0) {
+        historyList.innerHTML = '<p class="history-empty">No sessions yet. Complete a pomodoro to see your history.</p>';
+        return;
+      }
+
+      // Group by date
+      const groups = {};
+      workSessions.forEach(s => {
+        const key = s.date;
+        if (!groups[key]) groups[key] = [];
+        groups[key].push(s);
+      });
+
+      Object.keys(groups).sort().reverse().forEach(dateKey => {
+        const label = document.createElement('div');
+        label.className = 'history-date-label';
+        label.textContent = formatDateLabel(dateKey);
+        historyList.appendChild(label);
+
+        groups[dateKey].forEach(s => {
+          const card = document.createElement('div');
+          card.className = 'history-card';
+
+          const time = new Date(s.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          let html = `<div class="history-card-header"><span class="history-time">${escapeHtml(time)}</span><span class="history-duration">${s.durationMinutes} min</span></div>`;
+
+          if (s.taskName) {
+            html += `<div class="history-task">${escapeHtml(s.taskName)}`;
+            if (s.taskMarkedDone) html += ' <span class="history-done-badge">Done</span>';
+            html += '</div>';
+          }
+
+          if (s.note) {
+            html += `<div class="history-note">${escapeHtml(s.note)}</div>`;
+          }
+
+          if (typeof s.distractionCount === 'number') {
+            if (s.distractionCount === 0) {
+              html += '<div class="history-distractions clean">0 distractions</div>';
+            } else {
+              html += `<div class="history-distractions distracted">${s.distractionCount} distraction${s.distractionCount !== 1 ? 's' : ''}</div>`;
+            }
+          }
+
+          card.innerHTML = html;
+          historyList.appendChild(card);
+        });
+      });
+    },
+
     showAchievementUnlock(achievement) {
       clearTimeout(toastTimeout);
       achievementToast.innerHTML = `
@@ -521,10 +718,11 @@ export function createUI() {
     closeAllPanels() {
       settingsPanel.hidden = true;
       achievementsPanel.hidden = true;
+      historyPanel.hidden = true;
     },
 
     isAnyPanelOpen() {
-      return !settingsPanel.hidden || !achievementsPanel.hidden;
+      return !settingsPanel.hidden || !achievementsPanel.hidden || !historyPanel.hidden;
     },
 
     // ---- Event binding ----

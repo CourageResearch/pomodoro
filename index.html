@@ -104,6 +104,15 @@
       <div id="achievements-grid" class="achievements-grid"></div>
     </div>
 
+    <!-- History Panel (slide-in) -->
+    <div id="history-panel" class="history-panel" hidden>
+      <div class="history-header">
+        <h2>Session History</h2>
+        <button id="history-close" class="btn-icon" aria-label="Close history">&times;</button>
+      </div>
+      <div id="history-list" class="history-list"></div>
+    </div>
+
     <!-- Header -->
     <header class="header">
       <h1 class="logo">
@@ -114,6 +123,9 @@
         <button id="btn-theme" class="btn-icon" title="Toggle theme">
           <svg class="icon-moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
           <svg class="icon-sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="display:none"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+        </button>
+        <button id="btn-history" class="btn-icon" title="Session History">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
         </button>
         <button id="btn-achievements" class="btn-icon" title="Achievements">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 9H4.5a2.5 2.5 0 010-5C7 4 7 7 7 7"/><path d="M18 9h1.5a2.5 2.5 0 000-5C17 4 17 7 17 7"/><path d="M4 22h16"/><path d="M10 22V8a4 4 0 00-4-4"/><path d="M14 22V8a4 4 0 014-4"/><path d="M8 22h8"/><path d="M12 11v6"/></svg>
@@ -161,6 +173,14 @@
         <button id="btn-reset" class="btn btn-secondary" title="Reset (R)">Reset</button>
         <button id="btn-start" class="btn btn-primary" title="Start/Pause (Space)">Start</button>
         <button id="btn-skip" class="btn btn-secondary" title="Skip (S)">Skip</button>
+      </div>
+
+      <!-- Distraction Counter (self-accountability) -->
+      <div id="distraction-counter" class="distraction-counter" hidden>
+        <button id="btn-distraction" class="btn-distraction" title="Tap when you get distracted">
+          <span id="distraction-count">0</span>
+          <span class="distraction-label">distractions</span>
+        </button>
       </div>
 
       <!-- Pomodoro Counter -->
@@ -213,6 +233,10 @@
         <span class="stat-value" id="stat-tasks">0</span>
         <span class="stat-label">Tasks Done</span>
       </div>
+      <div class="stat streak-stat">
+        <span class="stat-value" id="streak-count">0 days</span>
+        <span class="stat-label">Streak</span>
+      </div>
     </footer>
 
     <!-- Focus Mode Overlay -->
@@ -251,6 +275,26 @@
 
     <!-- Goal Celebration -->
     <div id="goal-celebration" class="goal-celebration" hidden></div>
+
+    <!-- Session Check-in (accountability gate) -->
+    <div id="session-checkin" class="session-checkin" hidden>
+      <div class="checkin-modal">
+        <div class="checkin-icon">&#10003;</div>
+        <h3 class="checkin-title">Session Complete</h3>
+        <p id="checkin-task" class="checkin-task"></p>
+        <p id="checkin-distractions" class="checkin-distractions" hidden></p>
+        <label class="checkin-label" for="checkin-note">What did you accomplish?</label>
+        <textarea id="checkin-note" class="checkin-note" placeholder="Brief reflection..." rows="2" maxlength="280"></textarea>
+        <label id="checkin-mark-done-label" class="checkin-done-label">
+          <input type="checkbox" id="checkin-mark-done">
+          Mark task as complete
+        </label>
+        <button id="checkin-submit" class="btn btn-primary checkin-submit" disabled>Claim Break</button>
+      </div>
+    </div>
+
+    <!-- Effort Reward (variable reinforcement) -->
+    <div id="effort-reward" class="effort-reward" hidden></div>
 
     <!-- Achievement Toast -->
     <div id="achievement-toast" class="achievement-toast" hidden></div>

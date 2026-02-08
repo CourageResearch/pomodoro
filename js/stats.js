@@ -8,12 +8,13 @@ export function createStats(initialSessions = []) {
   return {
     getSessions() { return sessions; },
 
-    record(mode, durationMinutes) {
+    record(mode, durationMinutes, meta = {}) {
       sessions.push({
         mode,
         durationMinutes,
         date: todayKey(),
         timestamp: Date.now(),
+        ...meta,
       });
     },
 

@@ -17,9 +17,10 @@ const stats = createStats(state.sessions);
 const ambient = createAmbient();
 const achievements = createAchievements(state.achievements || []);
 
-let mode = 'work';             // 'work' | 'shortBreak' | 'longBreak'
+let mode = state.mode || 'work'; // 'work' | 'shortBreak' | 'longBreak'
 let pomodorosCompleted = state.pomodorosCompleted || 0;
 let streakData = state.streakData || { lastDate: null, count: 0 };
+let distractionCount = 0;
 
 // ---- Helpers ----
 function getDuration(m) {
@@ -43,6 +44,8 @@ function persist() {
     currentTaskId: tasks.getCurrentId(),
     achievements: achievements.getUnlockedIds(),
     streakData,
+    mode,
+    timerEndTime: timer.isRunning() ? Date.now() + timer.getRemaining() * 1000 : null,
   });
 }
 
@@ -55,6 +58,8 @@ function persistNow() {
     currentTaskId: tasks.getCurrentId(),
     achievements: achievements.getUnlockedIds(),
     streakData,
+    mode,
+    timerEndTime: timer.isRunning() ? Date.now() + timer.getRemaining() * 1000 : null,
   });
 }
 
@@ -66,6 +71,8 @@ function refreshStats() {
     tasks.getCompletedCount()
   );
   ui.updateDailyGoal(todayPoms, settings.dailyGoal);
+  ui.setEarned(todayPoms > 0);
+  ui.updateStreak(streakData.count);
 }
 
 function refreshTasks() {
@@ -124,11 +131,18 @@ function switchMode(newMode, autoStart = false) {
   ui.resetTabTitle();
   ui.updatePomodoroDots(pomodorosCompleted, settings.longBreakInterval);
 
+  // Hide distraction counter during breaks
+  if (mode !== 'work') ui.hideDistractionCounter();
+
   if (autoStart) {
     timer.start();
     ui.setStartButton(true);
-    // Start ambient on auto-start work
-    if (mode === 'work') startAmbientIfEnabled();
+    if (mode === 'work') {
+      startAmbientIfEnabled();
+      distractionCount = 0;
+      ui.updateDistractionCount(0);
+      ui.showDistractionCounter();
+    }
   }
 }
 
@@ -199,27 +213,20 @@ timer.onComplete(() => {
 
   if (mode === 'work') {
     pomodorosCompleted++;
-    stats.record('work', settings.workDuration);
     tasks.incrementCurrent();
     refreshTasks();
 
     if (settings.soundEnabled) playChime('work', settings.volume);
     showNotification('Work session complete!', 'Time for a break.');
 
-    // Update streak
-    updateStreak();
+    // Persist session immediately so it survives a refresh during check-in
+    persistNow();
 
-    // Check daily goal celebration
-    const todayPoms = stats.todayPomodoros();
-    if (todayPoms === settings.dailyGoal) {
-      ui.showGoalCelebration();
-    }
+    ui.hideDistractionCounter();
 
-    // Decide next break type
-    const nextMode = (pomodorosCompleted % settings.longBreakInterval === 0)
-      ? 'longBreak'
-      : 'shortBreak';
-    switchMode(nextMode, settings.autoStartBreaks);
+    // Show check-in — break is granted only after reflection
+    const currentTask = tasks.getCurrent();
+    ui.showCheckin(currentTask, distractionCount);
   } else {
     const breakType = mode === 'shortBreak' ? 'shortBreak' : 'longBreak';
     const mins = mode === 'shortBreak' ? settings.shortBreakDuration : settings.longBreakDuration;
@@ -229,7 +236,53 @@ timer.onComplete(() => {
     showNotification('Break is over!', 'Ready to focus?');
 
     switchMode('work', settings.autoStartPomodoros);
+    refreshStats();
+    checkAchievements();
+    persist();
   }
+});
+
+// ---- Check-in callback — rewards granted only after reflection ----
+ui.onCheckinSubmit(({ note, markDone }) => {
+  // Capture task name before any mutations
+  const currentId = tasks.getCurrentId();
+  const taskNameForRecord = tasks.getCurrent()?.name || null;
+  if (note && currentId) {
+    const current = tasks.getCurrent();
+    const existing = current?.notes || '';
+    const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const updated = existing ? `${existing}\n[${time}] ${note}` : `[${time}] ${note}`;
+    tasks.update(currentId, { notes: updated });
+  }
+
+  // Mark task done if requested
+  if (markDone && currentId) {
+    tasks.toggleDone(currentId);
+  }
+  refreshTasks();
+
+  // Record enriched session — credit granted after reflection
+  stats.record('work', settings.workDuration, {
+    taskName: taskNameForRecord,
+    note: note || null,
+    distractionCount,
+    taskMarkedDone: !!markDone,
+  });
+
+  // Now grant the rewards
+  ui.showEffortReward(pomodorosCompleted, stats.todayPomodoros());
+  updateStreak();
+
+  const todayPoms = stats.todayPomodoros();
+  if (todayPoms === settings.dailyGoal) {
+    ui.showGoalCelebration();
+  }
+
+  // Transition to break
+  const nextMode = (pomodorosCompleted % settings.longBreakInterval === 0)
+    ? 'longBreak'
+    : 'shortBreak';
+  switchMode(nextMode, settings.autoStartBreaks);
 
   refreshStats();
   checkAchievements();
@@ -240,14 +293,35 @@ timer.onComplete(() => {
 ui.onStart(() => {
   requestPermission();
   if (timer.isRunning()) {
-    timer.pause();
+    // COMMIT MODE: pausing resets the timer. Finish or lose it.
+    timer.reset(getDuration(mode));
     ui.setStartButton(false);
+    ui.updateTimer(getDuration(mode));
     ui.resetTabTitle();
     stopAmbient();
+    ui.hideDistractionCounter();
   } else {
+    // Require at least 2 tasks before starting
+    const allTasks = tasks.getAll();
+    if (allTasks.length < 2) {
+      ui.showMinTaskWarning();
+      return;
+    }
     timer.start();
     ui.setStartButton(true);
-    if (mode === 'work') startAmbientIfEnabled();
+    if (mode === 'work') {
+      startAmbientIfEnabled();
+      distractionCount = 0;
+      ui.updateDistractionCount(0);
+      ui.showDistractionCounter();
+    }
+  }
+});
+
+ui.onDistraction(() => {
+  if (timer.isRunning() && mode === 'work') {
+    distractionCount++;
+    ui.updateDistractionCount(distractionCount);
   }
 });
 
@@ -256,6 +330,7 @@ ui.onReset(() => {
   ui.setStartButton(false);
   ui.resetTabTitle();
   stopAmbient();
+  ui.hideDistractionCounter();
 });
 
 ui.onSkip(() => {
@@ -272,9 +347,14 @@ ui.onSkip(() => {
 });
 
 ui.onModeTab((newMode) => {
+  // Can't manually switch to break — earn your rest
+  if (newMode !== 'work') return;
+
   if (timer.isRunning()) {
-    // Switching modes while running — reset
-    timer.pause();
+    timer.reset(getDuration(mode));
+    ui.setStartButton(false);
+    ui.updateTimer(getDuration(mode));
+    ui.resetTabTitle();
     stopAmbient();
   }
   switchMode(newMode);
@@ -311,14 +391,28 @@ ui.onThemeToggle(() => {
   persist();
 });
 
+// ---- History panel ----
+ui.onHistoryOpen(() => {
+  ui.closeSettings();
+  ui.closeAchievements();
+  ui.renderHistory(stats.getSessions());
+  ui.openHistory();
+});
+
 // ---- Achievements panel ----
 ui.onAchievementsOpen(() => {
+  ui.closeSettings();
+  ui.closeHistory();
   ui.renderAchievements(achievements.getAll());
   ui.openAchievements();
 });
 
 // ---- Settings ----
-ui.onSettingsOpen(() => ui.openSettings());
+ui.onSettingsOpen(() => {
+  ui.closeAchievements();
+  ui.closeHistory();
+  ui.openSettings();
+});
 ui.onSettingsClose(() => ui.closeSettings());
 ui.onSettingsChange(() => {
   const newSettings = ui.readSettings();
@@ -363,6 +457,8 @@ ui.onSettingsChange(() => {
 document.addEventListener('keydown', (e) => {
   // Don't trigger shortcuts when typing in inputs
   if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
+  // Don't trigger shortcuts when check-in is open
+  if (ui.isCheckinOpen()) return;
 
   // Escape closes overlays/panels
   if (e.key === 'Escape') {
@@ -376,15 +472,27 @@ document.addEventListener('keydown', (e) => {
     case 'Space':
       e.preventDefault();
       if (timer.isRunning()) {
-        timer.pause();
+        // COMMIT MODE: pausing resets the timer
+        timer.reset(getDuration(mode));
         ui.setStartButton(false);
+        ui.updateTimer(getDuration(mode));
         ui.resetTabTitle();
         stopAmbient();
+        ui.hideDistractionCounter();
       } else {
+        if (tasks.getAll().length < 2) {
+          ui.showMinTaskWarning();
+          break;
+        }
         requestPermission();
         timer.start();
         ui.setStartButton(true);
-        if (mode === 'work') startAmbientIfEnabled();
+        if (mode === 'work') {
+          startAmbientIfEnabled();
+          distractionCount = 0;
+          ui.updateDistractionCount(0);
+          ui.showDistractionCounter();
+        }
       }
       break;
     case 'KeyS':
@@ -436,11 +544,27 @@ window.addEventListener('beforeunload', (e) => {
 
 // ---- Initial render ----
 ui.setTheme(settings.theme);
-const initialDuration = getDuration('work');
+const initialDuration = getDuration(mode);
 ui.setTotalDuration(initialDuration);
-switchMode('work');
+switchMode(mode);
 ui.loadSettings(settings);
 ui.updateCurrentTask(tasks.getCurrent());
 refreshTasks();
 refreshStats();
 ui.renderAchievements(achievements.getAll());
+
+// ---- Resume timer if it was running before page refresh ----
+if (state.timerEndTime) {
+  const remaining = Math.max(0, Math.ceil((state.timerEndTime - Date.now()) / 1000));
+  if (remaining > 0) {
+    timer.reset(remaining);
+    timer.start();
+    ui.setStartButton(true);
+    ui.updateTimer(remaining);
+    if (mode === 'work') {
+      startAmbientIfEnabled();
+      ui.showDistractionCounter();
+    }
+  }
+  // If remaining <= 0: session elapsed while away. Commit mode — you weren't there.
+}

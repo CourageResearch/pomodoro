@@ -93,7 +93,8 @@
 }
 
 [data-theme="light"] .settings-panel,
-[data-theme="light"] .achievements-panel {
+[data-theme="light"] .achievements-panel,
+[data-theme="light"] .history-panel {
   background: rgba(250, 248, 246, 0.95);
   backdrop-filter: blur(40px);
   -webkit-backdrop-filter: blur(40px);
@@ -142,8 +143,12 @@
   z-index: 0;
   pointer-events: none;
   background: radial-gradient(ellipse 60% 50% at 50% 30%, var(--glow) 0%, transparent 70%);
-  transition: background 1.2s ease;
+  transition: background 1.2s ease, opacity 1s ease;
   opacity: 0.8;
+}
+
+body:has(#app[data-earned="false"]) .ambient-glow {
+  opacity: 0.15;
 }
 
 /* ========== Grain Overlay ========== */
@@ -276,6 +281,14 @@ body {
 @keyframes fadeUp {
   from { opacity: 0; transform: translateY(12px); }
   to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-6px); }
+  40% { transform: translateX(6px); }
+  60% { transform: translateX(-4px); }
+  80% { transform: translateX(4px); }
 }
 
 .mode-tab {
@@ -461,6 +474,84 @@ body {
 
 .btn-small:hover {
   filter: brightness(1.1);
+}
+
+/* ========== Distraction Counter ========== */
+.distraction-counter {
+  text-align: center;
+  margin: 0.5rem 0;
+  animation: fadeUp 0.3s ease both;
+}
+
+.distraction-counter[hidden] {
+  display: none;
+}
+
+.btn-distraction {
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  border-radius: 100px;
+  padding: 0.35rem 1rem;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.75rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.btn-distraction:hover {
+  border-color: rgba(255, 255, 255, 0.12);
+  color: var(--text-dim);
+}
+
+.btn-distraction:active {
+  transform: scale(0.95);
+}
+
+#distraction-count {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: var(--text-dim);
+}
+
+.distraction-label {
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+.distraction-counter.has-distractions #distraction-count {
+  color: #e67e22;
+}
+
+.distraction-counter.has-distractions .btn-distraction {
+  border-color: rgba(230, 126, 34, 0.3);
+}
+
+/* Check-in distraction display */
+.checkin-distractions {
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  margin-bottom: 1rem;
+  padding: 0.4rem 0.8rem;
+  background: var(--glass);
+  border-radius: var(--radius-sm);
+  display: inline-block;
+}
+
+.checkin-distractions[hidden] {
+  display: none;
+}
+
+.checkin-distractions.clean {
+  color: #3ec9a7;
+}
+
+.checkin-distractions.distracted {
+  color: #e67e22;
 }
 
 /* ========== Pomodoro Counter ========== */
@@ -653,6 +744,7 @@ body {
 .task-item {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 0.6rem;
   padding: 0.65rem 0.85rem;
   border-radius: var(--radius-sm);
@@ -798,8 +890,8 @@ body {
 }
 
 .task-notes-area {
-  width: 100%;
-  padding: 0.3rem 0.6rem 0.3rem 2.8rem;
+  flex-basis: 100%;
+  padding: 0.3rem 0 0.3rem 1.8rem;
 }
 
 .task-notes-area textarea {
@@ -932,22 +1024,14 @@ body {
   margin-top: 0.15rem;
 }
 
-/* ========== Focus Overlay ========== */
-.focus-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(8, 6, 10, 0.96);
-  z-index: 1000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  animation: focusFadeIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+/* ========== Focus Mode (hidden) ========== */
+#btn-focus,
+#btn-skip {
+  display: none;
 }
 
-.focus-overlay[hidden] {
-  display: none;
+.focus-overlay {
+  display: none !important;
 }
 
 @keyframes focusFadeIn {
@@ -1045,18 +1129,21 @@ body {
 
 /* Scrollbar styling */
 .settings-panel::-webkit-scrollbar,
-.achievements-panel::-webkit-scrollbar {
+.achievements-panel::-webkit-scrollbar,
+.history-panel::-webkit-scrollbar {
   width: 4px;
 }
 
 .settings-panel::-webkit-scrollbar-thumb,
-.achievements-panel::-webkit-scrollbar-thumb {
+.achievements-panel::-webkit-scrollbar-thumb,
+.history-panel::-webkit-scrollbar-thumb {
   background: var(--text-muted);
   border-radius: 4px;
 }
 
 .settings-panel::-webkit-scrollbar-track,
-.achievements-panel::-webkit-scrollbar-track {
+.achievements-panel::-webkit-scrollbar-track,
+.history-panel::-webkit-scrollbar-track {
   background: transparent;
 }
 
@@ -1475,6 +1562,421 @@ kbd {
   .timer-text {
     font-size: clamp(3rem, 14vw, 5rem);
   }
+}
+
+/* ========== Unearned State — UI is muted until you work ========== */
+#app[data-earned="false"] .timer-glow {
+  opacity: 0.1;
+}
+
+#app[data-earned="false"] .ambient-glow ~ #app .timer-glow {
+  opacity: 0.1;
+}
+
+#app[data-earned="false"] .timer-text {
+  color: var(--text-muted);
+  text-shadow: none;
+}
+
+#app[data-earned="false"] .ring-progress {
+  stroke: var(--text-muted);
+  filter: none;
+}
+
+#app[data-earned="false"] .goal-ring {
+  stroke: var(--text-muted);
+}
+
+#app[data-earned="false"] .timer-ring {
+  filter: none;
+}
+
+#app[data-earned="false"] .stat-value {
+  color: var(--text-muted);
+  text-shadow: none;
+}
+
+#app[data-earned="false"] .pom-dot {
+  border-color: var(--text-muted);
+  opacity: 0.3;
+}
+
+#app[data-earned="false"] .pom-dot.filled {
+  background: var(--text-muted);
+  box-shadow: none;
+}
+
+#app[data-earned="false"] .btn-primary {
+  box-shadow: none;
+  background: var(--text-muted);
+}
+
+#app[data-earned="false"] .mode-tab.active {
+  background: var(--text-muted);
+  box-shadow: none;
+}
+
+/* Earned state — the reward */
+#app[data-earned="true"] .timer-glow {
+  animation: glowPulse 3s ease-in-out infinite;
+}
+
+@keyframes glowPulse {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
+/* ========== Session Check-in (accountability gate) ========== */
+.session-checkin {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  z-index: 1100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: focusFadeIn 0.3s ease;
+}
+
+.session-checkin[hidden] {
+  display: none;
+}
+
+.checkin-modal {
+  background: rgba(20, 18, 24, 0.95);
+  backdrop-filter: blur(40px);
+  -webkit-backdrop-filter: blur(40px);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  padding: 2rem 1.75rem;
+  width: min(380px, 90vw);
+  text-align: center;
+  box-shadow: 0 16px 48px -12px rgba(0, 0, 0, 0.5), 0 0 40px -8px var(--glow);
+  animation: modalPop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.checkin-icon {
+  width: 48px;
+  height: 48px;
+  margin: 0 auto 1rem;
+  background: var(--accent);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.4rem;
+  color: #fff;
+  box-shadow: 0 0 24px -4px var(--accent);
+}
+
+.checkin-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 0.5rem;
+  letter-spacing: -0.01em;
+}
+
+.checkin-task {
+  font-size: 0.85rem;
+  color: var(--accent-light);
+  font-weight: 500;
+  margin-bottom: 1.25rem;
+}
+
+.checkin-task[hidden] {
+  display: none;
+}
+
+.checkin-label {
+  display: block;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  text-align: left;
+}
+
+.checkin-note {
+  width: 100%;
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-sm);
+  padding: 0.6rem 0.85rem;
+  color: var(--text);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.85rem;
+  resize: none;
+  outline: none;
+  transition: all 0.25s;
+  margin-bottom: 0.75rem;
+}
+
+.checkin-note::placeholder {
+  color: var(--text-muted);
+}
+
+.checkin-note:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(212, 99, 74, 0.1);
+}
+
+.checkin-done-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.82rem;
+  color: var(--text-dim);
+  margin-bottom: 1.25rem;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.checkin-done-label[hidden] {
+  display: none;
+}
+
+.checkin-done-label input[type="checkbox"] {
+  accent-color: var(--accent);
+  width: 15px;
+  height: 15px;
+}
+
+.checkin-submit {
+  width: 100%;
+}
+
+.checkin-submit:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+[data-theme="light"] .session-checkin {
+  background: rgba(0, 0, 0, 0.2);
+}
+
+[data-theme="light"] .checkin-modal {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(40px);
+  -webkit-backdrop-filter: blur(40px);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+/* ========== Effort Reward (variable reinforcement) ========== */
+.effort-reward {
+  position: fixed;
+  bottom: 5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(14, 12, 16, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  padding: 0.7rem 1.4rem;
+  z-index: 1100;
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--accent-light);
+  letter-spacing: -0.01em;
+  text-align: center;
+  white-space: nowrap;
+  box-shadow: 0 8px 32px -8px rgba(0, 0, 0, 0.4), 0 0 30px -6px var(--glow);
+  animation: rewardSlideUp 0.5s cubic-bezier(0.34, 1.56, 0.64, 1), rewardFadeOut 0.5s ease 3.5s forwards;
+}
+
+.effort-reward[hidden] {
+  display: none;
+}
+
+@keyframes rewardSlideUp {
+  from { transform: translateX(-50%) translateY(20px); opacity: 0; }
+  to { transform: translateX(-50%) translateY(0); opacity: 1; }
+}
+
+@keyframes rewardFadeOut {
+  from { opacity: 1; transform: translateX(-50%) translateY(0); }
+  to { opacity: 0; transform: translateX(-50%) translateY(-10px); }
+}
+
+[data-theme="light"] .effort-reward {
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--accent);
+}
+
+/* ========== Locked Break Tabs — earn your rest ========== */
+.mode-tab[data-mode="shortBreak"]:not(.active),
+.mode-tab[data-mode="longBreak"]:not(.active) {
+  opacity: 0.25;
+  cursor: not-allowed;
+}
+
+.mode-tab[data-mode="shortBreak"]:not(.active):hover,
+.mode-tab[data-mode="longBreak"]:not(.active):hover {
+  color: var(--text-muted);
+}
+
+/* ========== Streak ========== */
+.streak-stat.streak-active .stat-value {
+  color: #f59e0b;
+  text-shadow: 0 0 16px rgba(245, 158, 11, 0.3);
+}
+
+/* ========== History Panel ========== */
+.history-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: min(380px, 92vw);
+  height: 100vh;
+  background: rgba(14, 12, 16, 0.92);
+  backdrop-filter: blur(40px);
+  -webkit-backdrop-filter: blur(40px);
+  z-index: 900;
+  overflow-y: auto;
+  border-left: 1px solid var(--glass-border);
+  animation: panelSlideIn 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.history-panel[hidden] {
+  display: none;
+}
+
+.history-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  background: inherit;
+  backdrop-filter: blur(40px);
+  -webkit-backdrop-filter: blur(40px);
+  z-index: 1;
+}
+
+.history-header h2 {
+  font-size: 0.9rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.history-header .btn-icon {
+  font-size: 1.3rem;
+  color: var(--text-dim);
+}
+
+.history-list {
+  padding: 1rem 1.5rem;
+}
+
+.history-empty {
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  text-align: center;
+  padding: 2rem 0;
+}
+
+.history-date-label {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 0.6rem;
+  margin-top: 1.25rem;
+}
+
+.history-date-label:first-child {
+  margin-top: 0;
+}
+
+.history-card {
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  padding: 0.75rem 1rem;
+  margin-bottom: 0.5rem;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.history-card:hover {
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.history-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.35rem;
+}
+
+.history-time {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.72rem;
+  color: var(--text-dim);
+  font-weight: 500;
+}
+
+.history-duration {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.68rem;
+  color: var(--text-muted);
+}
+
+.history-task {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--text);
+  margin-bottom: 0.25rem;
+}
+
+.history-done-badge {
+  display: inline-block;
+  font-size: 0.6rem;
+  font-weight: 600;
+  color: #3ec9a7;
+  background: rgba(62, 201, 167, 0.12);
+  border: 1px solid rgba(62, 201, 167, 0.25);
+  border-radius: 100px;
+  padding: 0.05rem 0.45rem;
+  vertical-align: middle;
+  margin-left: 0.35rem;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.history-note {
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  font-style: italic;
+  margin-bottom: 0.25rem;
+  line-height: 1.4;
+}
+
+.history-distractions {
+  font-size: 0.68rem;
+  font-weight: 500;
+}
+
+.history-distractions.clean {
+  color: #3ec9a7;
+}
+
+.history-distractions.distracted {
+  color: #e67e22;
+}
+
+[data-theme="light"] .history-card:hover {
+  border-color: rgba(0, 0, 0, 0.12);
 }
 
 /* ========== Smooth transitions for all mode/theme changes ========== */

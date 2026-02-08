@@ -22,6 +22,8 @@ const DEFAULTS = {
   currentTaskId: null,
   achievements: [],
   streakData: { lastDate: null, count: 0 },
+  mode: 'work',
+  timerEndTime: null,
 };
 
 let saveTimeout = null;
@@ -40,6 +42,8 @@ function load() {
       currentTaskId: data.currentTaskId ?? null,
       achievements: Array.isArray(data.achievements) ? data.achievements : [],
       streakData: { ...DEFAULTS.streakData, ...data.streakData },
+      mode: data.mode || 'work',
+      timerEndTime: data.timerEndTime || null,
     };
   } catch {
     return structuredClone(DEFAULTS);
