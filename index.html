@@ -204,9 +204,17 @@
         </div>
         <form id="task-form" class="task-form">
           <input type="text" id="task-input" placeholder="Add a task..." required>
-          <input type="number" id="task-est" placeholder="Est." min="1" max="20" title="Estimated pomodoros">
           <button type="submit" class="btn btn-small">Add</button>
         </form>
+        <!-- Estimate Picker -->
+        <div id="est-picker" class="est-picker">
+          <span class="est-picker-label">Min:</span>
+          <button type="button" class="est-btn" data-est="5">5</button>
+          <button type="button" class="est-btn" data-est="10">10</button>
+          <button type="button" class="est-btn" data-est="15">15</button>
+          <button type="button" class="est-btn" data-est="20">20</button>
+          <button type="button" class="est-btn" data-est="25">25</button>
+        </div>
         <!-- Tag Picker (for new tasks) -->
         <div id="tag-picker" class="tag-picker">
           <button type="button" class="tag-pill" data-tag="Work" style="--tag-color:#e74c3c">Work</button>
@@ -295,6 +303,9 @@
 
     <!-- Effort Reward (variable reinforcement) -->
     <div id="effort-reward" class="effort-reward" hidden></div>
+
+    <!-- Early Bird Bonus -->
+    <div id="early-bird-bonus" class="early-bird-bonus" hidden></div>
 
     <!-- Achievement Toast -->
     <div id="achievement-toast" class="achievement-toast" hidden></div>

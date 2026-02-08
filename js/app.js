@@ -273,6 +273,12 @@ ui.onCheckinSubmit(({ note, markDone }) => {
   ui.showEffortReward(pomodorosCompleted, stats.todayPomodoros());
   updateStreak();
 
+  // Early Bird bonus — first pomodoro of the day before 9:30 AM
+  const now = new Date();
+  if (stats.todayPomodoros() === 1 && (now.getHours() < 9 || (now.getHours() === 9 && now.getMinutes() < 30))) {
+    ui.showEarlyBirdBonus();
+  }
+
   const todayPoms = stats.todayPomodoros();
   if (todayPoms === settings.dailyGoal) {
     ui.showGoalCelebration();

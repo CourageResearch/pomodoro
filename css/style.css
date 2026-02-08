@@ -682,15 +682,18 @@ body {
   background: var(--glass);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-sm) 0 0 var(--radius-sm);
-  padding: 0.55rem 0.85rem;
+  padding: 0.7rem 0.85rem;
   color: var(--text);
   font-family: 'DM Sans', sans-serif;
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   outline: none;
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
-  margin-right: -1px;
+}
+
+.task-form input[type="text"] + .btn-small {
+  margin-left: -1px;
 }
 
 .task-form input[type="text"]::placeholder {
@@ -703,37 +706,51 @@ body {
   z-index: 1;
 }
 
-.task-form input[type="number"] {
-  width: 3.2rem;
+/* ---- Estimate Picker ---- */
+.est-picker {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-bottom: 0.5rem;
+}
+
+.est-picker-label {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-right: 0.15rem;
+}
+
+.est-btn {
   background: var(--glass);
   border: 1px solid var(--glass-border);
-  border-radius: 0;
-  padding: 0.55rem 0.3rem;
-  color: var(--text-dim);
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.78rem;
-  text-align: center;
-  outline: none;
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-  border-left: 1px solid var(--border);
-  margin-right: -1px;
-  -moz-appearance: textfield;
-}
-
-.task-form input[type="number"]::-webkit-outer-spin-button,
-.task-form input[type="number"]::-webkit-inner-spin-button {
-  -webkit-appearance: none;
-  margin: 0;
-}
-
-.task-form input[type="number"]::placeholder {
   color: var(--text-muted);
+  cursor: pointer;
+  width: 2rem;
+  height: 2rem;
+  border-radius: var(--radius-sm);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.75rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.task-form input[type="number"]:focus {
+.est-btn:hover {
+  color: var(--text-dim);
+  border-color: rgba(255, 255, 255, 0.12);
+  background: var(--glass-hover);
+}
+
+.est-btn.selected {
+  background: var(--accent);
+  color: #fff;
   border-color: var(--accent);
-  color: var(--text);
-  z-index: 1;
+  box-shadow: 0 0 12px -4px var(--glow);
 }
 
 .task-list {
@@ -1809,6 +1826,50 @@ kbd {
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border: 1px solid var(--accent);
+}
+
+/* ========== Early Bird Bonus ========== */
+.early-bird-bonus {
+  position: fixed;
+  top: 1.25rem;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(14, 12, 16, 0.88);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid #f59e0b;
+  border-radius: var(--radius);
+  padding: 0.7rem 1.4rem;
+  z-index: 1100;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #f59e0b;
+  letter-spacing: -0.01em;
+  text-align: center;
+  white-space: nowrap;
+  box-shadow: 0 8px 32px -8px rgba(0, 0, 0, 0.4), 0 0 30px -6px rgba(245, 158, 11, 0.25);
+  animation: earlyBirdIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1), earlyBirdOut 0.5s ease 4.5s forwards;
+}
+
+.early-bird-bonus[hidden] {
+  display: none;
+}
+
+@keyframes earlyBirdIn {
+  from { transform: translateX(-50%) translateY(-20px) scale(0.9); opacity: 0; }
+  to { transform: translateX(-50%) translateY(0) scale(1); opacity: 1; }
+}
+
+@keyframes earlyBirdOut {
+  from { opacity: 1; transform: translateX(-50%) translateY(0); }
+  to { opacity: 0; transform: translateX(-50%) translateY(-10px); }
+}
+
+[data-theme="light"] .early-bird-bonus {
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid #f59e0b;
 }
 
 /* ========== Locked Break Tabs — earn your rest ========== */

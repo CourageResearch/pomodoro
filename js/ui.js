@@ -49,7 +49,7 @@ export function createUI() {
   const currentTaskName = $('#current-task-name');
   const taskForm = $('#task-form');
   const taskInput = $('#task-input');
-  const taskEst = $('#task-est');
+  const estPicker = $('#est-picker');
   const taskList = $('#task-list');
   const pomDots = $('#pomodoro-dots');
   const statPomodoros = $('#stat-pomodoros');
@@ -68,6 +68,7 @@ export function createUI() {
   const achievementsGrid = $('#achievements-grid');
   const achievementToast = $('#achievement-toast');
   const goalCelebration = $('#goal-celebration');
+  const earlyBirdBonus = $('#early-bird-bonus');
   const timerRing = $('#timer-ring');
   const goalRing = $('#goal-ring');
   const tagPicker = $('#tag-picker');
@@ -93,6 +94,23 @@ export function createUI() {
   let totalDuration = 0;
   let activeFilter = 'all';
   let selectedTags = [];
+  let selectedEst = null;
+
+  // Estimate picker toggle logic
+  estPicker.querySelectorAll('.est-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      const val = parseInt(btn.dataset.est, 10);
+      if (selectedEst === val) {
+        selectedEst = null;
+        btn.classList.remove('selected');
+      } else {
+        selectedEst = val;
+        estPicker.querySelectorAll('.est-btn').forEach(b => b.classList.remove('selected'));
+        btn.classList.add('selected');
+      }
+    });
+  });
 
   // SVG ring constants
   const TIMER_RING_CIRCUMFERENCE = 2 * Math.PI * 110; // ~691.15
@@ -247,6 +265,16 @@ export function createUI() {
         el.style.animation = '';
         setTimeout(() => { el.hidden = true; }, 4000);
       }
+    },
+
+    // ---- Early Bird Bonus ----
+    showEarlyBirdBonus() {
+      earlyBirdBonus.textContent = '\u2600\uFE0F Early Bird — first session before 9:30 AM!';
+      earlyBirdBonus.hidden = false;
+      earlyBirdBonus.style.animation = 'none';
+      earlyBirdBonus.offsetHeight;
+      earlyBirdBonus.style.animation = '';
+      setTimeout(() => { earlyBirdBonus.hidden = true; }, 5000);
     },
 
     // ---- Distraction counter ----
@@ -745,11 +773,13 @@ export function createUI() {
         e.preventDefault();
         const name = taskInput.value.trim();
         if (!name) return;
-        const est = taskEst.value ? parseInt(taskEst.value, 10) : null;
+        const est = selectedEst;
         const tags = [...selectedTags];
         fn(name, est, tags);
         taskInput.value = '';
-        taskEst.value = '';
+        // Reset estimate picker
+        selectedEst = null;
+        estPicker.querySelectorAll('.est-btn').forEach(b => b.classList.remove('selected'));
         // Reset tag picker
         selectedTags = [];
         tagPicker.querySelectorAll('.tag-pill').forEach(p => p.classList.remove('selected'));
