@@ -92,6 +92,18 @@
             <input type="range" id="setting-ambient-volume" min="0" max="100" value="40">
           </label>
         </fieldset>
+        <fieldset>
+          <legend>Site Blocker</legend>
+          <label class="toggle-label">
+            <input type="checkbox" id="setting-blocking-enabled" checked>
+            Enable site blocking
+          </label>
+          <div class="blocklist-add">
+            <input type="text" id="blocklist-domain-input" placeholder="example.com">
+            <button type="button" id="blocklist-add-btn" class="btn-blocklist-add">Block</button>
+          </div>
+          <div id="blocklist-container" class="blocklist-container"></div>
+        </fieldset>
       </div>
     </div>
 

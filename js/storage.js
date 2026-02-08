@@ -15,6 +15,8 @@ const DEFAULTS = {
     ambientEnabled: false,
     ambientType: 'rain',
     ambientVolume: 40,
+    blockingEnabled: true,
+    blocklist: [],
   },
   tasks: [],
   sessions: [],
@@ -59,6 +61,8 @@ function save(state) {
     } catch {
       // Storage full or unavailable — fail silently
     }
+    // Fire-and-forget sync to server
+    syncToServer(state);
   }, 300);
 }
 
@@ -69,6 +73,83 @@ function saveImmediate(state) {
   } catch {
     // fail silently
   }
+  syncToServer(state);
 }
 
-export { load, save, saveImmediate, DEFAULTS };
+// Merge server state with local state
+// Server wins for sessions (union by timestamp) and streakData
+// Local wins for transient fields like timerEndTime
+function mergeStates(local, server) {
+  if (!server || Object.keys(server).length === 0) return local;
+
+  // Union sessions by timestamp (deduplicate)
+  const localSessions = Array.isArray(local.sessions) ? local.sessions : [];
+  const serverSessions = Array.isArray(server.sessions) ? server.sessions : [];
+  const sessionMap = new Map();
+  for (const s of serverSessions) {
+    sessionMap.set(s.timestamp, s);
+  }
+  for (const s of localSessions) {
+    if (!sessionMap.has(s.timestamp)) {
+      sessionMap.set(s.timestamp, s);
+    }
+  }
+  const mergedSessions = [...sessionMap.values()].sort(
+    (a, b) => new Date(a.timestamp) - new Date(b.timestamp)
+  );
+
+  return {
+    settings: { ...DEFAULTS.settings, ...server.settings, ...local.settings },
+    tasks: (local.tasks && local.tasks.length > 0) ? local.tasks : (server.tasks || []),
+    sessions: mergedSessions,
+    pomodorosCompleted: Math.max(local.pomodorosCompleted || 0, server.pomodorosCompleted || 0),
+    currentTaskId: local.currentTaskId ?? server.currentTaskId ?? null,
+    achievements: unionArrays(local.achievements, server.achievements),
+    streakData: (server.streakData && server.streakData.count > (local.streakData?.count || 0))
+      ? server.streakData
+      : (local.streakData || DEFAULTS.streakData),
+    mode: local.mode || server.mode || 'work',
+    timerEndTime: local.timerEndTime || null, // local wins — transient
+  };
+}
+
+function unionArrays(a, b) {
+  if (!Array.isArray(a)) a = [];
+  if (!Array.isArray(b)) b = [];
+  return [...new Set([...a, ...b])];
+}
+
+async function syncFromServer() {
+  try {
+    const res = await fetch('/api/state');
+    if (!res.ok) return;
+    const serverState = await res.json();
+    if (!serverState || Object.keys(serverState).length === 0) return;
+
+    const localState = load();
+    const merged = mergeStates(localState, serverState);
+
+    // Write merged state back to localStorage
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+    } catch {
+      // fail silently
+    }
+  } catch {
+    // Server unavailable — continue with localStorage only
+  }
+}
+
+function syncToServer(state) {
+  // Strip transient fields before sending to server
+  const { timerEndTime, ...persistable } = state;
+  fetch('/api/state', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(persistable),
+  }).catch(() => {
+    // Server unavailable — fail silently
+  });
+}
+
+export { load, save, saveImmediate, syncFromServer, DEFAULTS };

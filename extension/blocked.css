@@ -1,0 +1,208 @@
+/* Blocked Page — Obsidian Studio theme */
+:root {
+  --accent: #d4634a;
+  --accent-light: #f0845a;
+  --bg: #0c0a0e;
+  --glow: rgba(212, 99, 74, 0.15);
+  --text: #e8e4e0;
+  --text-dim: #8a8580;
+  --text-muted: #524e4a;
+  --border: rgba(255, 255, 255, 0.06);
+  --glass: rgba(255, 255, 255, 0.03);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --radius: 12px;
+  --radius-lg: 20px;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 15px;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow: hidden;
+}
+
+/* ---- Ambient Glow ---- */
+.ambient-glow {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse 60% 50% at 50% 30%, var(--glow) 0%, transparent 70%);
+  opacity: 0.8;
+}
+
+/* ---- Grain Overlay ---- */
+.grain-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='1'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  background-size: 128px 128px;
+}
+
+/* ---- Container ---- */
+.blocked-container {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 440px;
+  padding: 1.5rem;
+}
+
+/* ---- Card ---- */
+.blocked-card {
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  padding: 3rem 2.5rem;
+  text-align: center;
+  backdrop-filter: blur(40px);
+  -webkit-backdrop-filter: blur(40px);
+  box-shadow: 0 16px 48px -12px rgba(0, 0, 0, 0.5), 0 0 40px -8px var(--glow);
+  animation: cardAppear 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes cardAppear {
+  from { transform: scale(0.95); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+/* ---- Shield Icon ---- */
+.shield-icon-wrapper {
+  width: 72px;
+  height: 72px;
+  margin: 0 auto 1.5rem;
+  background: var(--accent);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  box-shadow: 0 0 32px -4px var(--accent), 0 0 60px -8px var(--glow);
+  animation: shieldPulse 3s ease-in-out infinite;
+}
+
+@keyframes shieldPulse {
+  0%, 100% { box-shadow: 0 0 32px -4px var(--accent), 0 0 60px -8px var(--glow); }
+  50% { box-shadow: 0 0 40px -2px var(--accent), 0 0 80px -4px var(--glow); }
+}
+
+/* ---- Typography ---- */
+.blocked-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin-bottom: 0.75rem;
+  background: linear-gradient(135deg, var(--text) 0%, var(--text-dim) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.blocked-domain {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--accent-light);
+  margin-bottom: 1.25rem;
+  padding: 0.4rem 1rem;
+  background: rgba(212, 99, 74, 0.08);
+  border: 1px solid rgba(212, 99, 74, 0.2);
+  border-radius: 100px;
+  display: inline-block;
+  text-shadow: 0 0 20px var(--glow);
+}
+
+/* ---- Current Task Reminder ---- */
+.current-task-reminder {
+  margin-bottom: 1.5rem;
+  padding: 0.85rem 1.25rem;
+  background: rgba(212, 99, 74, 0.06);
+  border: 1px solid rgba(212, 99, 74, 0.18);
+  border-radius: var(--radius);
+  animation: cardAppear 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) 0.2s both;
+}
+
+.current-task-reminder[hidden] {
+  display: none;
+}
+
+.reminder-label {
+  display: block;
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 0.35rem;
+}
+
+.reminder-task-name {
+  display: block;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--accent-light);
+  letter-spacing: -0.01em;
+  text-shadow: 0 0 20px var(--glow);
+}
+
+.blocked-message {
+  font-size: 0.9rem;
+  color: var(--text-dim);
+  line-height: 1.6;
+  margin-bottom: 2rem;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+}
+
+/* ---- Go Back Button ---- */
+.btn-back {
+  background: var(--glass);
+  color: var(--text-dim);
+  border: 1px solid var(--glass-border);
+  padding: 0.65rem 2rem;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 600;
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-back::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(255,255,255,0.1) 0%, transparent 50%);
+  pointer-events: none;
+}
+
+.btn-back:hover {
+  color: var(--text);
+  background: var(--glass-border);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.btn-back:active {
+  transform: scale(0.96);
+}

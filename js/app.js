@@ -2,12 +2,13 @@ import { createTimer } from './timer.js';
 import { createUI } from './ui.js';
 import { createTaskManager } from './tasks.js';
 import { createStats } from './stats.js';
-import { load, save, saveImmediate } from './storage.js';
+import { load, save, saveImmediate, syncFromServer } from './storage.js';
 import { playChime, showNotification, requestPermission } from './notifications.js';
 import { createAmbient } from './ambient.js';
 import { createAchievements } from './achievements.js';
 
-// ---- Load persisted state ----
+// ---- Sync from server, then load persisted state ----
+await syncFromServer();
 const state = load();
 const settings = state.settings;
 const timer = createTimer();
@@ -95,6 +96,7 @@ function refreshTasks() {
       refreshTasks();
       ui.updateCurrentTask(tasks.getCurrent());
       persist();
+      notifyExtension();
     },
     onEdit(id, changes) {
       tasks.update(id, changes);
@@ -144,6 +146,7 @@ function switchMode(newMode, autoStart = false) {
       ui.showDistractionCounter();
     }
   }
+  notifyTimerState();
 }
 
 // ---- Ambient sound helpers ----
@@ -306,11 +309,18 @@ ui.onStart(() => {
     ui.resetTabTitle();
     stopAmbient();
     ui.hideDistractionCounter();
+    notifyTimerState();
   } else {
-    // Require at least 2 tasks before starting
+    // Require tasks that fill the work duration
     const allTasks = tasks.getAll();
-    if (allTasks.length < 2) {
+    const undoneTasks = allTasks.filter(t => !t.done);
+    const totalEstMinutes = undoneTasks.reduce((sum, t) => sum + (t.estimatedPomodoros || 0), 0);
+    if (undoneTasks.length < 2) {
       ui.showMinTaskWarning();
+      return;
+    }
+    if (totalEstMinutes < settings.workDuration) {
+      ui.showFillTimeWarning(totalEstMinutes, settings.workDuration);
       return;
     }
     timer.start();
@@ -321,6 +331,8 @@ ui.onStart(() => {
       ui.updateDistractionCount(0);
       ui.showDistractionCounter();
     }
+    persist();
+    notifyTimerState();
   }
 });
 
@@ -390,6 +402,46 @@ ui.onFilterChange(() => {
   refreshTasks();
 });
 
+// ---- Site Blocker ----
+function notifyExtension() {
+  const currentTask = tasks.getCurrent();
+  window.postMessage({
+    type: 'pomodoro-blocklist-update',
+    blocklist: settings.blocklist,
+    blockingEnabled: settings.blockingEnabled,
+    currentTaskName: currentTask ? currentTask.name : null,
+  }, '*');
+}
+
+function notifyTimerState() {
+  window.postMessage({
+    type: 'pomodoro-timer-state',
+    isWorking: timer.isRunning() && mode === 'work',
+  }, '*');
+}
+
+ui.onBlocklistAdd((domain) => {
+  if (!settings.blocklist) settings.blocklist = [];
+  if (settings.blocklist.includes(domain)) return;
+  settings.blocklist.push(domain);
+  ui.renderBlocklistItems(settings.blocklist);
+  persist();
+  notifyExtension();
+});
+
+ui.onBlocklistRemove((domain) => {
+  settings.blocklist = (settings.blocklist || []).filter(d => d !== domain);
+  ui.renderBlocklistItems(settings.blocklist);
+  persist();
+  notifyExtension();
+});
+
+ui.onBlocklistToggle((enabled) => {
+  settings.blockingEnabled = enabled;
+  persist();
+  notifyExtension();
+});
+
 // ---- Theme ----
 ui.onThemeToggle(() => {
   settings.theme = settings.theme === 'dark' ? 'light' : 'dark';
@@ -399,6 +451,7 @@ ui.onThemeToggle(() => {
 
 // ---- History panel ----
 ui.onHistoryOpen(() => {
+  if (ui.isHistoryOpen()) { ui.closeHistory(); return; }
   ui.closeSettings();
   ui.closeAchievements();
   ui.renderHistory(stats.getSessions());
@@ -407,6 +460,7 @@ ui.onHistoryOpen(() => {
 
 // ---- Achievements panel ----
 ui.onAchievementsOpen(() => {
+  if (ui.isAchievementsOpen()) { ui.closeAchievements(); return; }
   ui.closeSettings();
   ui.closeHistory();
   ui.renderAchievements(achievements.getAll());
@@ -415,6 +469,7 @@ ui.onAchievementsOpen(() => {
 
 // ---- Settings ----
 ui.onSettingsOpen(() => {
+  if (ui.isSettingsOpen()) { ui.closeSettings(); return; }
   ui.closeAchievements();
   ui.closeHistory();
   ui.openSettings();
@@ -485,9 +540,16 @@ document.addEventListener('keydown', (e) => {
         ui.resetTabTitle();
         stopAmbient();
         ui.hideDistractionCounter();
+        notifyTimerState();
       } else {
-        if (tasks.getAll().length < 2) {
+        const kbTasks = tasks.getAll().filter(t => !t.done);
+        const kbTotalEst = kbTasks.reduce((sum, t) => sum + (t.estimatedPomodoros || 0), 0);
+        if (kbTasks.length < 2) {
           ui.showMinTaskWarning();
+          break;
+        }
+        if (kbTotalEst < settings.workDuration) {
+          ui.showFillTimeWarning(kbTotalEst, settings.workDuration);
           break;
         }
         requestPermission();
@@ -499,6 +561,8 @@ document.addEventListener('keydown', (e) => {
           ui.updateDistractionCount(0);
           ui.showDistractionCounter();
         }
+        persist();
+        notifyTimerState();
       }
       break;
     case 'KeyS':
@@ -558,6 +622,7 @@ ui.updateCurrentTask(tasks.getCurrent());
 refreshTasks();
 refreshStats();
 ui.renderAchievements(achievements.getAll());
+notifyExtension();
 
 // ---- Resume timer if it was running before page refresh ----
 if (state.timerEndTime) {
@@ -574,3 +639,4 @@ if (state.timerEndTime) {
   }
   // If remaining <= 0: session elapsed while away. Commit mode — you weren't there.
 }
+notifyTimerState();

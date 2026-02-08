@@ -1,0 +1,77 @@
+/* Popup — Obsidian Studio theme */
+:root {
+  --accent: #d4634a;
+  --accent-light: #f0845a;
+  --bg: #0c0a0e;
+  --text: #e8e4e0;
+  --text-dim: #8a8580;
+  --text-muted: #524e4a;
+  --border: rgba(255, 255, 255, 0.06);
+  --glow: rgba(212, 99, 74, 0.15);
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  width: 280px;
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.popup {
+  padding: 0;
+}
+
+/* ---- Header ---- */
+.popup-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.popup-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.shield-icon {
+  color: var(--accent);
+  filter: drop-shadow(0 0 6px var(--glow));
+}
+
+/* ---- Redirect Message ---- */
+.popup-redirect {
+  padding: 24px 16px;
+  text-align: center;
+}
+
+.popup-redirect p {
+  font-size: 13px;
+  color: var(--text-dim);
+  line-height: 1.5;
+}
+
+.popup-redirect strong {
+  color: var(--accent-light);
+  font-weight: 600;
+}
+
+.popup-hint {
+  margin-top: 12px;
+  font-size: 11px;
+  color: var(--text-muted);
+}

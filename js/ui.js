@@ -87,6 +87,10 @@ export function createUI() {
   const historyClose = $('#history-close');
   const historyList = $('#history-list');
   const btnHistory = $('#btn-history');
+  const blockingEnabledEl = $('#setting-blocking-enabled');
+  const blocklistDomainInput = $('#blocklist-domain-input');
+  const blocklistAddBtn = $('#blocklist-add-btn');
+  const blocklistContainer = $('#blocklist-container');
 
   const originalTitle = document.title;
   let focusMode = false;
@@ -155,11 +159,28 @@ export function createUI() {
     if (e.target === shortcutsOverlay) shortcutsOverlay.hidden = true;
   });
 
+  // Slide-out helper (used before return object is available)
+  function slideOut(panel) {
+    if (panel.hidden) return;
+    panel.classList.add('closing');
+    const done = () => { panel.classList.remove('closing'); panel.hidden = true; };
+    panel.addEventListener('transitionend', done, { once: true });
+    setTimeout(done, 350);
+  }
+
   // Achievements panel
-  achievementsClose.addEventListener('click', () => { achievementsPanel.hidden = true; });
+  achievementsClose.addEventListener('click', () => slideOut(achievementsPanel));
 
   // History panel
-  historyClose.addEventListener('click', () => { historyPanel.hidden = true; });
+  historyClose.addEventListener('click', () => slideOut(historyPanel));
+
+  // Click outside any slide-in panel to close it
+  document.addEventListener('click', (e) => {
+    const panels = [settingsPanel, achievementsPanel, historyPanel];
+    const toggleBtns = [btnSettings, btnAchievements, btnHistory];
+    if (panels.some(p => p.contains(e.target)) || toggleBtns.some(b => b.contains(e.target))) return;
+    panels.forEach(p => slideOut(p));
+  });
 
   // Check-in validation
   function updateCheckinState() {
@@ -171,6 +192,14 @@ export function createUI() {
   checkinMarkDone.addEventListener('change', updateCheckinState);
 
   let toastTimeout = null;
+
+  function normalizeDomain(input) {
+    let d = input.trim().toLowerCase();
+    d = d.replace(/^https?:\/\//, '');
+    d = d.replace(/^www\./, '');
+    d = d.replace(/[\/\?#:].*$/, '');
+    return d;
+  }
 
   return {
     // ---- Timer display ----
@@ -230,6 +259,18 @@ export function createUI() {
         btnStart.style.animation = '';
         taskInput.placeholder = 'Add a task...';
       }, 2000);
+    },
+
+    showFillTimeWarning(totalEst, needed) {
+      btnStart.style.animation = 'none';
+      btnStart.offsetHeight;
+      btnStart.style.animation = 'shake 0.4s ease';
+      taskInput.focus();
+      taskInput.placeholder = `Need ${needed - totalEst} more min of tasks...`;
+      setTimeout(() => {
+        btnStart.style.animation = '';
+        taskInput.placeholder = 'Add a task...';
+      }, 2500);
     },
 
     // ---- Effort reward (variable reinforcement) ----
@@ -551,9 +592,7 @@ export function createUI() {
         const poms = document.createElement('span');
         poms.className = 'task-pomodoros';
         if (task.estimatedPomodoros) {
-          poms.textContent = `${task.completedPomodoros}/${task.estimatedPomodoros} 🍅`;
-        } else if (task.completedPomodoros > 0) {
-          poms.textContent = `${task.completedPomodoros} 🍅`;
+          poms.textContent = `${task.estimatedPomodoros} min`;
         }
 
         const del = document.createElement('button');
@@ -591,7 +630,8 @@ export function createUI() {
 
     // ---- Settings ----
     openSettings() { settingsPanel.hidden = false; },
-    closeSettings() { settingsPanel.hidden = true; },
+    closeSettings() { slideOut(settingsPanel); },
+    isSettingsOpen() { return !settingsPanel.hidden; },
 
     loadSettings(settings) {
       $('#setting-work').value = settings.workDuration;
@@ -606,6 +646,7 @@ export function createUI() {
       $('#setting-ambient-enabled').checked = settings.ambientEnabled;
       $('#setting-ambient-type').value = settings.ambientType;
       $('#setting-ambient-volume').value = settings.ambientVolume;
+      this.loadBlocklist(settings);
     },
 
     readSettings() {
@@ -622,6 +663,7 @@ export function createUI() {
         ambientEnabled: $('#setting-ambient-enabled').checked,
         ambientType: $('#setting-ambient-type').value,
         ambientVolume: parseInt($('#setting-ambient-volume').value, 10) || 40,
+        blockingEnabled: blockingEnabledEl.checked,
       };
     },
 
@@ -641,11 +683,13 @@ export function createUI() {
     },
 
     openAchievements() { achievementsPanel.hidden = false; },
-    closeAchievements() { achievementsPanel.hidden = true; },
+    closeAchievements() { slideOut(achievementsPanel); },
+    isAchievementsOpen() { return !achievementsPanel.hidden; },
 
     // ---- History panel ----
     openHistory() { historyPanel.hidden = false; },
-    closeHistory() { historyPanel.hidden = true; },
+    closeHistory() { slideOut(historyPanel); },
+    isHistoryOpen() { return !historyPanel.hidden; },
     onHistoryOpen(fn) { btnHistory.addEventListener('click', fn); },
 
     renderHistory(sessions) {
@@ -744,9 +788,9 @@ export function createUI() {
 
     // ---- Close all panels helper ----
     closeAllPanels() {
-      settingsPanel.hidden = true;
-      achievementsPanel.hidden = true;
-      historyPanel.hidden = true;
+      slideOut(settingsPanel);
+      slideOut(achievementsPanel);
+      slideOut(historyPanel);
     },
 
     isAnyPanelOpen() {
@@ -773,6 +817,14 @@ export function createUI() {
         e.preventDefault();
         const name = taskInput.value.trim();
         if (!name) return;
+        if (!selectedEst) {
+          // Shake the estimate picker to indicate it's required
+          estPicker.style.animation = 'none';
+          estPicker.offsetHeight;
+          estPicker.style.animation = 'shake 0.4s ease';
+          setTimeout(() => { estPicker.style.animation = ''; }, 500);
+          return;
+        }
         const est = selectedEst;
         const tags = [...selectedTags];
         fn(name, est, tags);
@@ -794,6 +846,60 @@ export function createUI() {
 
     onFilterChange(fn) {
       filterCallback = fn;
+    },
+
+    // ---- Site Blocker ----
+    loadBlocklist(settings) {
+      blockingEnabledEl.checked = settings.blockingEnabled !== false;
+      this.renderBlocklistItems(settings.blocklist || []);
+    },
+
+    renderBlocklistItems(blocklist) {
+      blocklistContainer.innerHTML = '';
+      if (blocklist.length === 0) {
+        blocklistContainer.innerHTML = '<p class="blocklist-empty">No sites blocked</p>';
+        return;
+      }
+      blocklist.forEach(domain => {
+        const item = document.createElement('div');
+        item.className = 'blocklist-item';
+        item.innerHTML = `
+          <span class="blocklist-domain">${escapeHtml(domain)}</span>
+          <button class="btn-blocklist-remove" data-domain="${escapeHtml(domain)}" title="Remove">&times;</button>
+        `;
+        blocklistContainer.appendChild(item);
+      });
+    },
+
+    onBlocklistAdd(fn) {
+      const handler = () => {
+        const raw = blocklistDomainInput.value;
+        const domain = normalizeDomain(raw);
+        if (!domain) return;
+        blocklistDomainInput.value = '';
+        fn(domain);
+      };
+      blocklistAddBtn.addEventListener('click', handler);
+      blocklistDomainInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); handler(); }
+      });
+    },
+
+    onBlocklistRemove(fn) {
+      blocklistContainer.addEventListener('click', (e) => {
+        const btn = e.target.closest('.btn-blocklist-remove');
+        if (!btn) return;
+        const domain = btn.dataset.domain;
+        const item = btn.closest('.blocklist-item');
+        item.classList.add('removing');
+        setTimeout(() => fn(domain), 300);
+      });
+    },
+
+    onBlocklistToggle(fn) {
+      blockingEnabledEl.addEventListener('change', () => {
+        fn(blockingEnabledEl.checked);
+      });
     },
   };
 }
