@@ -288,7 +288,7 @@ timer.onComplete(() => {
 
     ui.hideDistractionCounter();
 
-    // Show check-in — break is granted only after reflection
+    // Show check-in (note is optional, just hit Done to move on)
     const currentTask = tasks.getCurrent();
     ui.showCheckin(currentTask, distractionCount);
   } else {
@@ -306,9 +306,8 @@ timer.onComplete(() => {
   }
 });
 
-// ---- Check-in callback — rewards granted only after reflection ----
+// ---- Check-in callback ----
 ui.onCheckinSubmit(({ note, markDone }) => {
-  // Capture task name before any mutations
   const currentId = tasks.getCurrentId();
   const taskNameForRecord = tasks.getCurrent()?.name || null;
   if (note && currentId) {
@@ -319,13 +318,11 @@ ui.onCheckinSubmit(({ note, markDone }) => {
     tasks.update(currentId, { notes: updated });
   }
 
-  // Mark task done if requested
   if (markDone && currentId) {
     tasks.toggleDone(currentId);
   }
   refreshTasks();
 
-  // Record enriched session — credit granted after reflection
   stats.record('work', settings.workDuration, {
     taskName: taskNameForRecord,
     note: note || null,
@@ -333,26 +330,22 @@ ui.onCheckinSubmit(({ note, markDone }) => {
     taskMarkedDone: !!markDone,
   });
 
-  // Now grant the rewards
   ui.showEffortReward(pomodorosCompleted, stats.todayPomodoros());
   updateStreak();
 
-  // Early Bird bonus — first pomodoro of the day before 9:30 AM
   const now = new Date();
   if (stats.todayPomodoros() === 1 && (now.getHours() < 9 || (now.getHours() === 9 && now.getMinutes() < 30))) {
     ui.showEarlyBirdBonus();
   }
-
-  const todayPoms = stats.todayPomodoros();
-  if (todayPoms === settings.dailyGoal) {
+  if (stats.todayPomodoros() === settings.dailyGoal) {
     ui.showGoalCelebration();
   }
 
-  // Transition to break
+  // Switch to break but don't auto-start — user starts it themselves
   const nextMode = (pomodorosCompleted % settings.longBreakInterval === 0)
     ? 'longBreak'
     : 'shortBreak';
-  switchMode(nextMode, settings.autoStartBreaks);
+  switchMode(nextMode);
 
   refreshStats();
   checkAchievements();

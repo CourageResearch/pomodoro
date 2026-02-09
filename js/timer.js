@@ -8,6 +8,7 @@ export function createTimer() {
   let remaining = 0;       // Seconds remaining (set when paused)
   let running = false;
   let rafId = null;
+  let intervalId = null;   // Background fallback (runs even in background tabs)
   let onTick = null;       // (secondsLeft) => void
   let onComplete = null;   // () => void
 
@@ -19,8 +20,7 @@ export function createTimer() {
     if (onTick) onTick(left);
 
     if (left <= 0) {
-      running = false;
-      remaining = 0;
+      stop();
       if (onComplete) onComplete();
       return;
     }
@@ -28,11 +28,34 @@ export function createTimer() {
     rafId = requestAnimationFrame(tick);
   }
 
+  // Background fallback — setInterval is throttled to ~1s in background tabs
+  // but still runs (unlike rAF which is fully paused)
+  function bgTick() {
+    if (!running) return;
+    const now = Date.now();
+    const left = Math.max(0, Math.ceil((targetTime - now) / 1000));
+
+    if (onTick) onTick(left);
+
+    if (left <= 0) {
+      stop();
+      if (onComplete) onComplete();
+    }
+  }
+
+  function stop() {
+    running = false;
+    cancelAnimationFrame(rafId);
+    clearInterval(intervalId);
+    remaining = 0;
+  }
+
   return {
     /** Set the countdown duration in seconds (does not start) */
     set(seconds) {
       running = false;
       cancelAnimationFrame(rafId);
+      clearInterval(intervalId);
       remaining = seconds;
       if (onTick) onTick(remaining);
     },
@@ -43,12 +66,14 @@ export function createTimer() {
       running = true;
       targetTime = Date.now() + remaining * 1000;
       rafId = requestAnimationFrame(tick);
+      intervalId = setInterval(bgTick, 1000);
     },
 
     pause() {
       if (!running) return;
       running = false;
       cancelAnimationFrame(rafId);
+      clearInterval(intervalId);
       const now = Date.now();
       remaining = Math.max(0, Math.ceil((targetTime - now) / 1000));
     },
@@ -56,6 +81,7 @@ export function createTimer() {
     reset(seconds) {
       running = false;
       cancelAnimationFrame(rafId);
+      clearInterval(intervalId);
       remaining = seconds;
       if (onTick) onTick(remaining);
     },
@@ -70,8 +96,7 @@ export function createTimer() {
       const left = Math.max(0, Math.ceil((targetTime - now) / 1000));
       if (onTick) onTick(left);
       if (left <= 0) {
-        running = false;
-        remaining = 0;
+        stop();
         if (onComplete) onComplete();
       }
     },

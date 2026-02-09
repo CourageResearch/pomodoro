@@ -183,11 +183,9 @@ export function createUI() {
     panels.forEach(p => slideOut(p));
   });
 
-  // Check-in validation
+  // Check-in — submit is always enabled (note is optional)
   function updateCheckinState() {
-    const hasNote = checkinNote.value.trim().length >= 3;
-    const isDone = checkinMarkDone.checked;
-    checkinSubmitBtn.disabled = !(hasNote || isDone);
+    // No-op — kept for compatibility
   }
   checkinNote.addEventListener('input', updateCheckinState);
   checkinMarkDone.addEventListener('change', updateCheckinState);
@@ -355,9 +353,8 @@ export function createUI() {
       }
       checkinNote.value = '';
       checkinMarkDone.checked = false;
-      checkinSubmitBtn.disabled = true;
+      checkinSubmitBtn.disabled = false;
       sessionCheckin.hidden = false;
-      setTimeout(() => checkinNote.focus(), 300);
     },
 
     isCheckinOpen() {
