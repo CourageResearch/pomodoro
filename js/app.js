@@ -36,6 +36,53 @@ function todayKey() {
   return new Date().toISOString().slice(0, 10);
 }
 
+// ===========================================================================
+// TIMER PERSISTENCE — uses cookie (synchronous, survives any type of refresh)
+// plus localStorage as backup. Cookies can't be lost by async race conditions.
+// ===========================================================================
+const TIMER_KEY = 'pomodoro_timer_active';
+const TIMER_COOKIE = 'pomodoro_timer';
+
+function saveTimerState() {
+  if (!timer.isRunning()) return;
+  const data = JSON.stringify({ endTime: timer.getTargetTime(), mode });
+  // Write to cookie (synchronous, bulletproof)
+  document.cookie = `${TIMER_COOKIE}=${encodeURIComponent(data)};path=/;max-age=86400;SameSite=Lax`;
+  // Also write to localStorage as backup
+  try { localStorage.setItem(TIMER_KEY, data); } catch {}
+}
+
+function clearTimerState() {
+  document.cookie = `${TIMER_COOKIE}=;path=/;max-age=0`;
+  try { localStorage.removeItem(TIMER_KEY); } catch {}
+}
+
+function loadTimerState() {
+  // Try cookie first (most reliable)
+  const cookieMatch = document.cookie.match(new RegExp('(?:^|;\\s*)' + TIMER_COOKIE + '=([^;]*)'));
+  const sources = [];
+  if (cookieMatch) {
+    try { sources.push(JSON.parse(decodeURIComponent(cookieMatch[1]))); } catch {}
+  }
+  // Try localStorage as backup
+  try {
+    const raw = localStorage.getItem(TIMER_KEY);
+    if (raw) sources.push(JSON.parse(raw));
+  } catch {}
+
+  for (const data of sources) {
+    if (!data || !data.endTime) continue;
+    const remaining = Math.max(0, Math.ceil((data.endTime - Date.now()) / 1000));
+    if (remaining > 0) {
+      return { remaining, mode: data.mode || 'work' };
+    }
+  }
+  // Expired or not found — clean up
+  clearTimerState();
+  return null;
+}
+// ===========================================================================
+
 function persist() {
   save({
     settings,
@@ -46,7 +93,7 @@ function persist() {
     achievements: achievements.getUnlockedIds(),
     streakData,
     mode,
-    timerEndTime: timer.isRunning() ? Date.now() + timer.getRemaining() * 1000 : null,
+    timerEndTime: timer.isRunning() ? timer.getTargetTime() : null,
   });
 }
 
@@ -60,7 +107,7 @@ function persistNow() {
     achievements: achievements.getUnlockedIds(),
     streakData,
     mode,
-    timerEndTime: timer.isRunning() ? Date.now() + timer.getRemaining() * 1000 : null,
+    timerEndTime: timer.isRunning() ? timer.getTargetTime() : null,
   });
 }
 
@@ -126,6 +173,7 @@ function switchMode(newMode, autoStart = false) {
   mode = newMode;
   const duration = getDuration(mode);
   timer.reset(duration);
+  clearTimerState();
   ui.setTotalDuration(duration);
   ui.setMode(mode);
   ui.setStartButton(false);
@@ -138,6 +186,7 @@ function switchMode(newMode, autoStart = false) {
 
   if (autoStart) {
     timer.start();
+    saveTimerState();
     ui.setStartButton(true);
     if (mode === 'work') {
       startAmbientIfEnabled();
@@ -204,13 +253,25 @@ function checkAchievements() {
 }
 
 // ---- Timer callbacks ----
+let lastTickSecond = -1;
+
 timer.onTick((seconds) => {
   ui.updateTimer(seconds);
   const currentTask = tasks.getCurrent();
   ui.updateTabTitle(seconds, mode, currentTask?.name || null);
+
+  // Throttle persistence to once per second (tick fires at ~60fps)
+  if (seconds !== lastTickSecond) {
+    lastTickSecond = seconds;
+    saveTimerState();
+    notifyTimerState();
+    // Persist full state every 30 seconds
+    if (seconds % 30 === 0) persist();
+  }
 });
 
 timer.onComplete(() => {
+  clearTimerState();
   ui.setStartButton(false);
   stopAmbient();
 
@@ -304,6 +365,7 @@ ui.onStart(() => {
   if (timer.isRunning()) {
     // COMMIT MODE: pausing resets the timer. Finish or lose it.
     timer.reset(getDuration(mode));
+    clearTimerState();
     ui.setStartButton(false);
     ui.updateTimer(getDuration(mode));
     ui.resetTabTitle();
@@ -324,6 +386,7 @@ ui.onStart(() => {
       return;
     }
     timer.start();
+    saveTimerState();
     ui.setStartButton(true);
     if (mode === 'work') {
       startAmbientIfEnabled();
@@ -331,7 +394,7 @@ ui.onStart(() => {
       ui.updateDistractionCount(0);
       ui.showDistractionCounter();
     }
-    persist();
+    persistNow();
     notifyTimerState();
   }
 });
@@ -345,6 +408,7 @@ ui.onDistraction(() => {
 
 ui.onReset(() => {
   timer.reset(getDuration(mode));
+  clearTimerState();
   ui.setStartButton(false);
   ui.resetTabTitle();
   stopAmbient();
@@ -370,6 +434,7 @@ ui.onModeTab((newMode) => {
 
   if (timer.isRunning()) {
     timer.reset(getDuration(mode));
+    clearTimerState();
     ui.setStartButton(false);
     ui.updateTimer(getDuration(mode));
     ui.resetTabTitle();
@@ -409,6 +474,7 @@ function notifyExtension() {
     type: 'pomodoro-blocklist-update',
     blocklist: settings.blocklist,
     blockingEnabled: settings.blockingEnabled,
+    blockingMode: settings.blockingMode || 'focus',
     currentTaskName: currentTask ? currentTask.name : null,
   }, '*');
 }
@@ -417,6 +483,9 @@ function notifyTimerState() {
   window.postMessage({
     type: 'pomodoro-timer-state',
     isWorking: timer.isRunning() && mode === 'work',
+    remainingSeconds: timer.isRunning() ? timer.getRemaining() : 0,
+    endTime: timer.isRunning() ? timer.getTargetTime() : null,
+    mode,
   }, '*');
 }
 
@@ -438,6 +507,12 @@ ui.onBlocklistRemove((domain) => {
 
 ui.onBlocklistToggle((enabled) => {
   settings.blockingEnabled = enabled;
+  persist();
+  notifyExtension();
+});
+
+ui.onBlockingModeChange((mode) => {
+  settings.blockingMode = mode;
   persist();
   notifyExtension();
 });
@@ -518,6 +593,8 @@ ui.onSettingsChange(() => {
 document.addEventListener('keydown', (e) => {
   // Don't trigger shortcuts when typing in inputs
   if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
+  // Don't trigger shortcuts when modifier keys are held (e.g. Ctrl+R should reload, not reset)
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
   // Don't trigger shortcuts when check-in is open
   if (ui.isCheckinOpen()) return;
 
@@ -535,6 +612,7 @@ document.addEventListener('keydown', (e) => {
       if (timer.isRunning()) {
         // COMMIT MODE: pausing resets the timer
         timer.reset(getDuration(mode));
+        clearTimerState();
         ui.setStartButton(false);
         ui.updateTimer(getDuration(mode));
         ui.resetTabTitle();
@@ -554,6 +632,7 @@ document.addEventListener('keydown', (e) => {
         }
         requestPermission();
         timer.start();
+        saveTimerState();
         ui.setStartButton(true);
         if (mode === 'work') {
           startAmbientIfEnabled();
@@ -561,15 +640,12 @@ document.addEventListener('keydown', (e) => {
           ui.updateDistractionCount(0);
           ui.showDistractionCounter();
         }
-        persist();
+        persistNow();
         notifyTimerState();
       }
       break;
     case 'KeyS':
       document.querySelector('#btn-skip').click();
-      break;
-    case 'KeyR':
-      document.querySelector('#btn-reset').click();
       break;
     case 'KeyF':
       if (ui.isFocusMode()) {
@@ -597,46 +673,58 @@ document.addEventListener('fullscreenchange', () => {
 document.addEventListener('visibilitychange', () => {
   if (!document.hidden) {
     timer.sync();
+  } else {
+    // Tab hidden — save everything immediately
+    if (timer.isRunning()) saveTimerState();
+    persistNow();
   }
 });
 
 // ---- Beforeunload warning ----
 window.addEventListener('beforeunload', (e) => {
   if (timer.isRunning()) {
+    saveTimerState();
     e.preventDefault();
-    // Most modern browsers ignore custom messages, but setting returnValue is required
     e.returnValue = '';
   }
   stopAmbient();
-  // Save state immediately on page unload
   persistNow();
 });
 
-// ---- Initial render ----
+// ============================================================
+// INITIAL RENDER — timer resume happens FIRST, before switchMode
+// ============================================================
 ui.setTheme(settings.theme);
-const initialDuration = getDuration(mode);
-ui.setTotalDuration(initialDuration);
-switchMode(mode);
+
+const savedTimer = loadTimerState();
+
+if (savedTimer) {
+  // Resume an active timer — do NOT call switchMode (it would reset the timer)
+  mode = savedTimer.mode;
+  const totalDuration = getDuration(mode);
+  ui.setTotalDuration(totalDuration);
+  ui.setMode(mode);
+  ui.setStartButton(true);
+  ui.updateTimer(savedTimer.remaining);
+  ui.updatePomodoroDots(pomodorosCompleted, settings.longBreakInterval);
+  timer.reset(savedTimer.remaining);
+  timer.start();
+  saveTimerState(); // Re-save with fresh targetTime from timer.start()
+  if (mode === 'work') {
+    startAmbientIfEnabled();
+    ui.showDistractionCounter();
+  }
+} else {
+  // No active timer — normal initialization
+  const initialDuration = getDuration(mode);
+  ui.setTotalDuration(initialDuration);
+  switchMode(mode);
+}
+
 ui.loadSettings(settings);
 ui.updateCurrentTask(tasks.getCurrent());
 refreshTasks();
 refreshStats();
 ui.renderAchievements(achievements.getAll());
 notifyExtension();
-
-// ---- Resume timer if it was running before page refresh ----
-if (state.timerEndTime) {
-  const remaining = Math.max(0, Math.ceil((state.timerEndTime - Date.now()) / 1000));
-  if (remaining > 0) {
-    timer.reset(remaining);
-    timer.start();
-    ui.setStartButton(true);
-    ui.updateTimer(remaining);
-    if (mode === 'work') {
-      startAmbientIfEnabled();
-      ui.showDistractionCounter();
-    }
-  }
-  // If remaining <= 0: session elapsed while away. Commit mode — you weren't there.
-}
 notifyTimerState();

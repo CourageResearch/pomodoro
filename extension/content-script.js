@@ -1,9 +1,27 @@
 // Content script — bridge between the Pomodoro website and the extension service worker.
-// Injected on the Pomodoro app page. Reads blocklist from localStorage and relays
-// updates to the service worker via chrome.runtime.sendMessage.
+// Runs at document_start so it can restore timer state before app.js loads.
 
 const STORAGE_KEY = 'pomodoro_app';
+const TIMER_KEY = 'pomodoro_timer_active';
 
+// ---- Restore timer state from extension storage BEFORE app.js runs ----
+try {
+  chrome.runtime.sendMessage({ type: 'getTimerState' }, (timerState) => {
+    if (chrome.runtime.lastError) return;
+    if (timerState && timerState.endTime) {
+      const remaining = Math.max(0, Math.ceil((timerState.endTime - Date.now()) / 1000));
+      if (remaining > 0) {
+        localStorage.setItem(TIMER_KEY, JSON.stringify(timerState));
+      } else {
+        localStorage.removeItem(TIMER_KEY);
+      }
+    }
+  });
+} catch {
+  // Extension context not available
+}
+
+// ---- Read blocklist from localStorage ----
 function readFromStorage() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -21,6 +39,7 @@ function readFromStorage() {
     return {
       blocklist: Array.isArray(data.settings.blocklist) ? data.settings.blocklist : [],
       blockingEnabled: data.settings.blockingEnabled !== false,
+      blockingMode: data.settings.blockingMode || 'focus',
       currentTaskName,
     };
   } catch {
@@ -28,25 +47,37 @@ function readFromStorage() {
   }
 }
 
-function sendToServiceWorker(blocklist, blockingEnabled, currentTaskName) {
-  chrome.runtime.sendMessage({
-    type: 'rulesChanged',
-    blocklist,
-    blockingEnabled,
-    currentTaskName: currentTaskName || null,
-  }).catch(() => {
-    // Extension context may not be available — fail silently
-  });
+function sendToServiceWorker(blocklist, blockingEnabled, blockingMode, currentTaskName) {
+  try {
+    chrome.runtime.sendMessage({
+      type: 'rulesChanged',
+      blocklist,
+      blockingEnabled,
+      blockingMode: blockingMode || 'focus',
+      currentTaskName: currentTaskName || null,
+    }).catch(() => {});
+  } catch {
+    // Extension context invalidated — fail silently
+  }
 }
 
-// On load: read from localStorage and send initial state
-const initial = readFromStorage();
-if (initial) {
-  sendToServiceWorker(initial.blocklist, initial.blockingEnabled, initial.currentTaskName);
+// Wait for DOM to be ready before reading localStorage (runs at document_start)
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', onReady);
+} else {
+  onReady();
 }
 
-// Store the Pomodoro app URL so the blocked page can link back to it
-chrome.storage.sync.set({ pomodoroAppUrl: window.location.origin });
+function onReady() {
+  const initial = readFromStorage();
+  if (initial) {
+    sendToServiceWorker(initial.blocklist, initial.blockingEnabled, initial.blockingMode, initial.currentTaskName);
+  }
+  // Store the Pomodoro app URL so the blocked page can link back to it
+  try {
+    chrome.storage.sync.set({ pomodoroAppUrl: window.location.origin });
+  } catch {}
+}
 
 // Listen for updates from the website via window.postMessage
 window.addEventListener('message', (event) => {
@@ -54,18 +85,26 @@ window.addEventListener('message', (event) => {
   if (!event.data) return;
 
   if (event.data.type === 'pomodoro-blocklist-update') {
-    const { blocklist, blockingEnabled, currentTaskName } = event.data;
+    const { blocklist, blockingEnabled, blockingMode, currentTaskName } = event.data;
     sendToServiceWorker(
       Array.isArray(blocklist) ? blocklist : [],
       blockingEnabled !== false,
+      blockingMode || 'focus',
       currentTaskName || null
     );
   }
 
   if (event.data.type === 'pomodoro-timer-state') {
-    chrome.runtime.sendMessage({
-      type: 'timerState',
-      isWorking: !!event.data.isWorking,
-    }).catch(() => {});
+    try {
+      chrome.runtime.sendMessage({
+        type: 'timerState',
+        isWorking: !!event.data.isWorking,
+        remainingSeconds: event.data.remainingSeconds || 0,
+        endTime: event.data.endTime || null,
+        mode: event.data.mode || 'work',
+      }).catch(() => {});
+    } catch {
+      // Extension context invalidated — fail silently
+    }
   }
 });

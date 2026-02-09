@@ -98,6 +98,13 @@
             <input type="checkbox" id="setting-blocking-enabled" checked>
             Enable site blocking
           </label>
+          <label>
+            Block sites
+            <select id="setting-blocking-mode">
+              <option value="focus">Only during focus sessions</option>
+              <option value="always">Always</option>
+            </select>
+          </label>
           <div class="blocklist-add">
             <input type="text" id="blocklist-domain-input" placeholder="example.com">
             <button type="button" id="blocklist-add-btn" class="btn-blocklist-add">Block</button>
@@ -178,7 +185,7 @@
 
       <!-- Timer Controls -->
       <div class="timer-controls">
-        <button id="btn-reset" class="btn btn-secondary" title="Reset (R)">Reset</button>
+        <button id="btn-reset" class="btn btn-secondary" title="Reset">Reset</button>
         <button id="btn-start" class="btn btn-primary" title="Start/Pause (Space)">Start</button>
         <button id="btn-skip" class="btn btn-secondary" title="Skip (S)">Skip</button>
       </div>
@@ -281,7 +288,6 @@
         <div class="shortcuts-grid">
           <div class="shortcut-row"><kbd>Space</kbd><span>Start / Pause timer</span></div>
           <div class="shortcut-row"><kbd>S</kbd><span>Skip to next mode</span></div>
-          <div class="shortcut-row"><kbd>R</kbd><span>Reset timer</span></div>
           <div class="shortcut-row"><kbd>F</kbd><span>Toggle focus mode</span></div>
           <div class="shortcut-row"><kbd>?</kbd><span>Show this help</span></div>
           <div class="shortcut-row"><kbd>Esc</kbd><span>Close overlay / panel</span></div>

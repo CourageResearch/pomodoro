@@ -88,6 +88,7 @@ export function createUI() {
   const historyList = $('#history-list');
   const btnHistory = $('#btn-history');
   const blockingEnabledEl = $('#setting-blocking-enabled');
+  const blockingModeEl = $('#setting-blocking-mode');
   const blocklistDomainInput = $('#blocklist-domain-input');
   const blocklistAddBtn = $('#blocklist-add-btn');
   const blocklistContainer = $('#blocklist-container');
@@ -657,6 +658,7 @@ export function createUI() {
         ambientType: $('#setting-ambient-type').value,
         ambientVolume: parseInt($('#setting-ambient-volume').value, 10) || 40,
         blockingEnabled: blockingEnabledEl.checked,
+        blockingMode: blockingModeEl.value,
       };
     },
 
@@ -844,6 +846,7 @@ export function createUI() {
     // ---- Site Blocker ----
     loadBlocklist(settings) {
       blockingEnabledEl.checked = settings.blockingEnabled !== false;
+      blockingModeEl.value = settings.blockingMode || 'focus';
       this.renderBlocklistItems(settings.blocklist || []);
     },
 
@@ -892,6 +895,12 @@ export function createUI() {
     onBlocklistToggle(fn) {
       blockingEnabledEl.addEventListener('change', () => {
         fn(blockingEnabledEl.checked);
+      });
+    },
+
+    onBlockingModeChange(fn) {
+      blockingModeEl.addEventListener('change', () => {
+        fn(blockingModeEl.value);
       });
     },
   };

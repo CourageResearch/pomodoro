@@ -1,15 +1,15 @@
 /* Blocked Page — Light theme */
 :root {
-  --accent: #d4634a;
-  --accent-light: #c0533a;
-  --bg: #faf8f6;
-  --glow: rgba(212, 99, 74, 0.08);
-  --text: #1c1917;
-  --text-dim: #78716c;
-  --text-muted: #a8a29e;
-  --border: rgba(0, 0, 0, 0.06);
+  --accent: #c0533a;
+  --accent-light: #b5432a;
+  --bg: #ffffff;
+  --glow: rgba(192, 83, 58, 0.06);
+  --text: #111111;
+  --text-dim: #444444;
+  --text-muted: #666666;
+  --border: rgba(0, 0, 0, 0.1);
   --glass: rgba(0, 0, 0, 0.02);
-  --glass-border: rgba(0, 0, 0, 0.08);
+  --glass-border: rgba(0, 0, 0, 0.1);
   --radius: 12px;
   --radius-lg: 20px;
 }

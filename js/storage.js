@@ -116,7 +116,7 @@ function mergeStates(local, server) {
       ? server.streakData
       : (local.streakData || DEFAULTS.streakData),
     mode: local.mode || server.mode || 'work',
-    timerEndTime: local.timerEndTime || null, // local wins — transient
+    timerEndTime: local.timerEndTime || server.timerEndTime || null,
   };
 }
 
@@ -148,12 +148,10 @@ async function syncFromServer() {
 }
 
 function syncToServer(state) {
-  // Strip transient fields before sending to server
-  const { timerEndTime, ...persistable } = state;
   fetch('/api/state', {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(persistable),
+    body: JSON.stringify(state),
   }).catch(() => {
     // Server unavailable — fail silently
   });

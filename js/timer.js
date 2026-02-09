@@ -83,6 +83,8 @@ export function createTimer() {
       }
       return remaining;
     },
+    /** Return the exact target timestamp (ms) so callers can persist it */
+    getTargetTime() { return running ? targetTime : 0; },
 
     onTick(fn) { onTick = fn; },
     onComplete(fn) { onComplete = fn; },
